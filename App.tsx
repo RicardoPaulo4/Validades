@@ -20,12 +20,18 @@ const App: React.FC = () => {
     const savedUser = localStorage.getItem('v_user');
     const savedSession = localStorage.getItem('v_session');
     if (savedUser) {
-      setAuthState({
-        user: JSON.parse(savedUser),
-        session: savedSession ? JSON.parse(savedSession) : null,
-        isAuthenticated: true,
-        isLoading: false
-      });
+      try {
+        setAuthState({
+          user: JSON.parse(savedUser),
+          session: savedSession ? JSON.parse(savedSession) : null,
+          isAuthenticated: true,
+          isLoading: false
+        });
+      } catch (e) {
+        localStorage.removeItem('v_user');
+        localStorage.removeItem('v_session');
+        setAuthState(prev => ({ ...prev, isLoading: false }));
+      }
     } else {
       setAuthState(prev => ({ ...prev, isLoading: false }));
     }
