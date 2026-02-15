@@ -2,14 +2,13 @@
 import { createClient } from '@supabase/supabase-js';
 import { ValidityRecord, ProductTemplate, User } from '../types';
 
-const SUPABASE_URL = (process.env as any).SUPABASE_URL || 'https://your-project.supabase.co';
-const SUPABASE_KEY = (process.env as any).SUPABASE_ANON_KEY || 'your-anon-key';
-const isMocked = !((process.env as any).SUPABASE_URL);
+const SUPABASE_URL = (process.env as any).NEXT_PUBLIC_SUPABASE_URL || '';
+const SUPABASE_KEY = (process.env as any).NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const isMocked = !SUPABASE_URL || SUPABASE_URL.includes('your-project');
 
 const supabase = !isMocked ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
 export const supabaseService = {
-  // Gestão de Templates (Catálogo)
   getTemplates: async (): Promise<ProductTemplate[]> => {
     if (isMocked) {
       const stored = localStorage.getItem('vc_templates');
@@ -32,7 +31,6 @@ export const supabaseService = {
     return data;
   },
 
-  // Gestão de Registos (Operacional)
   getRecords: async (): Promise<ValidityRecord[]> => {
     if (isMocked) {
       const stored = localStorage.getItem('vc_records');
@@ -48,7 +46,8 @@ export const supabaseService = {
     if (isMocked) {
       const records = await supabaseService.getRecords();
       const newR: ValidityRecord = { ...record, id: Math.random().toString(36).substr(2, 9), status: 'valid' };
-      localStorage.setItem('vc_records', JSON.stringify([newR, ...records]));
+      const updatedRecords = [newR, ...records];
+      localStorage.setItem('vc_records', JSON.stringify(updatedRecords));
       return calculateStatus(newR);
     }
     const { data, error } = await supabase!.from('registos').insert([record]).select().single();
@@ -59,8 +58,8 @@ export const supabaseService = {
   deleteRecord: async (id: string, user: User): Promise<boolean> => {
     if (user.role !== 'admin') return false;
     if (isMocked) {
-      const records = await supabaseService.getRecords();
-      localStorage.setItem('vc_records', JSON.stringify(records.filter(r => r.id !== id)));
+      const records = JSON.parse(localStorage.getItem('vc_records') || '[]');
+      localStorage.setItem('vc_records', JSON.stringify(records.filter((r: any) => r.id !== id)));
       return true;
     }
     const { error } = await supabase!.from('registos').delete().eq('id', id);
@@ -81,7 +80,8 @@ function calculateStatus(r: any): ValidityRecord {
   const expiry = new Date(r.data_validade);
   expiry.setHours(0,0,0,0);
   
-  const diffDays = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  const diffTime = expiry.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   
   let status: ValidityRecord['status'] = 'valid';
   if (diffDays < 0) status = 'expired';

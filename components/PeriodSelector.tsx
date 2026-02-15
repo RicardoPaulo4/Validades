@@ -30,42 +30,44 @@ const PeriodSelector: React.FC<PeriodSelectorProps> = ({ user, onStart }) => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 px-6 py-12">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 px-6 py-12 safe-top safe-bottom">
       <div className="w-full max-w-md space-y-8 animate-fade-in">
         <div className="text-center">
-          <h1 className="text-3xl font-black text-slate-900">Configurar Tarefa</h1>
-          <p className="text-slate-500 mt-2">Identifique-se para começar o registo</p>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Configurar Tarefa</h1>
+          <p className="text-slate-500 mt-2 font-medium">Introduza os dados para o relatório final</p>
         </div>
 
         <form onSubmit={handleStart} className="space-y-6">
           <div className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm space-y-4">
-            <div>
+            <div className="space-y-1">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">O seu Nome</label>
               <input 
                 type="text" required 
-                className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold outline-none focus:border-indigo-500 transition-all"
+                placeholder="Ex: João Silva"
+                className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all"
                 value={operatorName} onChange={e => setOperatorName(e.target.value)}
               />
             </div>
-            <div>
+            <div className="space-y-1">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email para Relatório</label>
               <input 
                 type="email" required 
-                className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold outline-none focus:border-indigo-500 transition-all"
+                placeholder="nome@empresa.com"
+                className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all"
                 value={reportEmail} onChange={e => setReportEmail(e.target.value)}
               />
             </div>
           </div>
 
           <div className="space-y-3">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 text-center block">Escolha o Período</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 text-center block">Selecione o Período Atual</label>
             <div className="grid grid-cols-1 gap-3">
               {periods.map((p) => (
                 <button
                   key={p.id}
                   type="button"
                   onClick={() => setSelectedPeriod(p.id)}
-                  className={`relative group overflow-hidden bg-white p-4 rounded-3xl border transition-all active:scale-95 text-left flex items-center gap-4 ${selectedPeriod === p.id ? 'border-indigo-600 ring-2 ring-indigo-50 shadow-lg' : 'border-slate-200 shadow-sm'}`}
+                  className={`relative group overflow-hidden bg-white p-4 rounded-3xl border transition-all active:scale-[0.97] text-left flex items-center gap-4 ${selectedPeriod === p.id ? 'border-indigo-600 ring-2 ring-indigo-50 shadow-xl' : 'border-slate-200 shadow-sm hover:border-slate-300'}`}
                 >
                   <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${p.color} flex items-center justify-center text-xl shadow-inner shrink-0`}>
                     {p.icon}
@@ -75,7 +77,7 @@ const PeriodSelector: React.FC<PeriodSelectorProps> = ({ user, onStart }) => {
                     <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">{p.time}</p>
                   </div>
                   {selectedPeriod === p.id && (
-                    <div className="bg-indigo-600 rounded-full p-1">
+                    <div className="bg-indigo-600 rounded-full p-1.5 shadow-md animate-scale-in">
                       <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" /></svg>
                     </div>
                   )}
@@ -86,9 +88,9 @@ const PeriodSelector: React.FC<PeriodSelectorProps> = ({ user, onStart }) => {
 
           <button
             disabled={!selectedPeriod}
-            className="w-full py-5 bg-slate-900 text-white rounded-[28px] font-black text-lg shadow-xl active:scale-95 transition-all disabled:opacity-50"
+            className="w-full py-5 bg-slate-900 text-white rounded-[28px] font-black text-lg shadow-2xl active:scale-95 transition-all disabled:opacity-50 disabled:bg-slate-400 transform"
           >
-            Começar Tarefa
+            Iniciar Registo de Validades
           </button>
         </form>
       </div>

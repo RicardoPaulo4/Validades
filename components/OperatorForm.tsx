@@ -35,6 +35,7 @@ const OperatorForm: React.FC<OperatorFormProps> = ({ user, session, onFinishTask
     const suggestion = new Date();
     suggestion.setDate(suggestion.getDate() + t.tempo_vida_dias);
     setExpiryDate(suggestion.toISOString().split('T')[0]);
+    // Forced manual hour entry: always starts empty
     setManualTime('');
   };
 
@@ -48,7 +49,10 @@ const OperatorForm: React.FC<OperatorFormProps> = ({ user, session, onFinishTask
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTemplate || !expiryDate || (!manualTime && !noTime)) return;
+    if (!selectedTemplate || !expiryDate || (!manualTime && !noTime)) {
+      if (!manualTime && !noTime) alert('Por favor, introduza a hora manualmente ou selecione "Sem hora".');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -72,9 +76,9 @@ const OperatorForm: React.FC<OperatorFormProps> = ({ user, session, onFinishTask
         setExpiryDate('');
         setManualTime('');
         setNoTime(false);
-      }, 2000);
+      }, 1500);
     } catch (err) {
-      alert('Erro ao guardar registo.');
+      alert('Erro ao guardar registo de validade.');
     } finally {
       setIsSubmitting(false);
     }
@@ -82,7 +86,9 @@ const OperatorForm: React.FC<OperatorFormProps> = ({ user, session, onFinishTask
 
   const handleFinishSession = () => {
     if (sessionRecords.length === 0) {
-      onFinishTask();
+      if (confirm('Ainda não fez nenhum registo. Deseja sair?')) {
+        onFinishTask();
+      }
       return;
     }
     setShowReport(true);
@@ -90,94 +96,138 @@ const OperatorForm: React.FC<OperatorFormProps> = ({ user, session, onFinishTask
 
   const sendReport = () => {
     setSendingReport(true);
-    // Simulação de envio de email
+    // Realistic email sending simulation
     setTimeout(() => {
       setSendingReport(false);
-      alert(`Relatório enviado com sucesso para ${session.reportEmail}`);
+      alert(`O relatório foi gerado e enviado com sucesso para ${session.reportEmail}`);
       onFinishTask();
-    }, 2500);
+    }, 2800);
   };
 
   const filteredTemplates = templates.filter(t => t.nome.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
-    <div className="max-w-md mx-auto space-y-6 pb-24">
+    <div className="max-w-md mx-auto space-y-6 pb-28">
       {!selectedTemplate ? (
         <div className="space-y-6 animate-fade-in">
           <div className="flex justify-between items-end px-1">
-            <div>
+            <div className="space-y-0.5">
               <h2 className="text-2xl font-black text-slate-900 tracking-tight capitalize">{session.period}</h2>
-              <p className="text-slate-500 text-xs font-medium">Operador: {session.operatorName}</p>
+              <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Op: {session.operatorName}</p>
             </div>
-            <div className="bg-indigo-600 text-white px-3 py-1.5 rounded-xl text-xs font-black shadow-lg shadow-indigo-100">
-              {sessionRecords.length} Items
+            <div className="bg-indigo-600 text-white px-4 py-2 rounded-2xl text-[10px] font-black shadow-lg shadow-indigo-100 flex items-center gap-2">
+              <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+              {sessionRecords.length} REGISTOS
             </div>
           </div>
 
           <div className="relative">
             <input 
-              type="text" placeholder="Procurar produto..."
-              className="w-full p-4 bg-white border border-slate-200 rounded-2xl shadow-sm pl-12 font-medium outline-none"
+              type="text" placeholder="Pesquisar produto no catálogo..."
+              className="w-full p-5 bg-white border border-slate-200 rounded-3xl shadow-sm pl-14 font-medium outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
               value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
             />
-            <svg className="w-5 h-5 absolute left-4 top-4.5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            <svg className="w-6 h-6 absolute left-5 top-4.5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             {filteredTemplates.map(t => (
-              <button key={t.id} onClick={() => handleSelectTemplate(t)} className="bg-white p-2 rounded-3xl border border-slate-100 shadow-sm active:scale-95 transition-all text-left">
-                <img src={t.imagem_url} className="w-full aspect-square rounded-2xl object-cover mb-2" alt="" />
-                <p className="font-bold text-slate-800 text-xs px-1 truncate">{t.nome}</p>
+              <button key={t.id} onClick={() => handleSelectTemplate(t)} className="bg-white p-2 rounded-[32px] border border-slate-100 shadow-sm active:scale-95 transition-all text-left group">
+                <div className="aspect-square rounded-[24px] overflow-hidden mb-2 relative">
+                  <img src={t.imagem_url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />
+                  <div className="absolute inset-0 bg-indigo-900/0 group-active:bg-indigo-900/20 transition-colors"></div>
+                </div>
+                <p className="font-bold text-slate-800 text-[11px] px-2 truncate leading-tight mb-1">{t.nome}</p>
               </button>
             ))}
           </div>
 
           {/* Floating Finish Button */}
-          <div className="fixed bottom-20 left-0 right-0 px-6 flex justify-center pointer-events-none">
+          <div className="fixed bottom-24 left-0 right-0 px-8 flex justify-center pointer-events-none z-40">
             <button 
               onClick={handleFinishSession}
-              className="pointer-events-auto px-8 py-4 bg-slate-900 text-white rounded-full font-black shadow-2xl flex items-center gap-3 active:scale-95 transition-all"
+              className="pointer-events-auto w-full max-w-xs py-4.5 bg-slate-900 text-white rounded-[24px] font-black shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all transform"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              Finalizar Tarefa
+              <div className="bg-emerald-500 p-1 rounded-full">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+              </div>
+              Finalizar e Relatório
             </button>
           </div>
         </div>
       ) : (
         <div className="animate-slide-up space-y-6">
-          <button onClick={() => setSelectedTemplate(null)} className="text-slate-400 font-bold flex items-center gap-1 text-sm">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg>
-            Voltar
+          <button onClick={() => setSelectedTemplate(null)} className="text-slate-400 font-bold flex items-center gap-2 text-sm hover:text-indigo-600 transition-colors px-1">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7" /></svg>
+            Cancelar e Voltar
           </button>
 
-          <div className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-xl space-y-6">
-             <div className="flex items-center gap-4">
-                <img src={selectedTemplate.imagem_url} className="w-16 h-16 rounded-2xl object-cover shadow-md" alt="" />
-                <h3 className="text-xl font-black text-slate-900 leading-tight">{selectedTemplate.nome}</h3>
+          <div className="bg-white p-6 rounded-[40px] border border-slate-200 shadow-2xl space-y-7 relative overflow-hidden">
+             <div className="flex items-center gap-5">
+                <div className="w-20 h-20 rounded-[28px] overflow-hidden shadow-inner border border-slate-100 shrink-0">
+                  <img src={selectedTemplate.imagem_url} className="w-full h-full object-cover" alt="" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black text-slate-900 leading-tight">{selectedTemplate.nome}</h3>
+                  <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] mt-1">Registo Operacional</p>
+                </div>
              </div>
 
-             <form onSubmit={handleSubmit} className="space-y-6">
+             <form onSubmit={handleSubmit} className="space-y-7">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase ml-1 tracking-widest">Data de Validade</label>
-                  <input type="date" required className={`w-full p-5 text-xl font-black rounded-2xl border-2 transition-all outline-none ${alertExpired ? 'bg-red-50 border-red-300 text-red-600' : 'bg-slate-50 border-slate-100 focus:border-indigo-500'}`} value={expiryDate} onChange={e => handleDateChange(e.target.value)} />
+                  <label className="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-widest">Data de Validade Final</label>
+                  <input 
+                    type="date" required 
+                    className={`w-full p-5 text-2xl font-black rounded-3xl border-2 transition-all outline-none ${alertExpired ? 'bg-red-50 border-red-200 text-red-600' : 'bg-slate-50 border-slate-100 focus:border-indigo-500 focus:bg-white'}`} 
+                    value={expiryDate} onChange={e => handleDateChange(e.target.value)} 
+                  />
+                  {alertExpired && (
+                    <div className="flex items-center gap-2 text-red-600 text-[11px] font-black uppercase tracking-widest px-2 animate-pulse">
+                       <span className="w-2 h-2 bg-red-600 rounded-full"></span>
+                       ATENÇÃO: Produto já caducado!
+                    </div>
+                  )}
                 </div>
 
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Hora</label>
-                    <label className="flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase cursor-pointer">
-                      <input type="checkbox" checked={noTime} onChange={e => setNoTime(e.target.checked)} className="rounded border-slate-300 text-indigo-600" />
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center px-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Hora da Validade (Manual)</label>
+                    <label className="flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase cursor-pointer select-none">
+                      <input 
+                        type="checkbox" 
+                        checked={noTime} 
+                        onChange={e => setNoTime(e.target.checked)} 
+                        className="rounded border-slate-300 text-indigo-600 w-5 h-5 transition-all" 
+                      />
                       Sem hora
                     </label>
                   </div>
-                  {!noTime && <input type="time" required={!noTime} className="w-full p-5 text-2xl font-black rounded-2xl bg-slate-50 border-2 border-slate-100 outline-none text-center" value={manualTime} onChange={e => setManualTime(e.target.value)} />}
+                  {!noTime ? (
+                    <input 
+                      type="time" 
+                      required={!noTime} 
+                      className="w-full p-6 text-4xl font-black rounded-[32px] bg-slate-50 border-2 border-slate-100 outline-none text-center focus:border-indigo-500 focus:bg-white transition-all shadow-inner" 
+                      value={manualTime} 
+                      onChange={e => setManualTime(e.target.value)} 
+                    />
+                  ) : (
+                    <div className="w-full p-8 text-center bg-slate-100 border-2 border-dashed border-slate-200 rounded-[32px] text-slate-400 font-black uppercase text-xs tracking-[0.2em]">
+                      Hora não solicitada
+                    </div>
+                  )}
                 </div>
 
                 {success ? (
-                  <div className="bg-emerald-500 text-white p-5 rounded-[24px] font-black text-center shadow-lg animate-bounce">✓ Registado!</div>
+                  <div className="bg-emerald-500 text-white p-6 rounded-[32px] font-black text-center shadow-xl shadow-emerald-100 animate-scale-in flex items-center justify-center gap-3">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" /></svg>
+                    REGISTO CONCLUÍDO
+                  </div>
                 ) : (
-                  <button disabled={isSubmitting} className="w-full py-5 bg-slate-900 text-white rounded-[28px] font-black text-lg shadow-xl active:scale-95 transition-all">
-                    {isSubmitting ? 'A guardar...' : 'Confirmar Registo'}
+                  <button 
+                    disabled={isSubmitting} 
+                    className="w-full py-6 bg-slate-900 text-white rounded-[32px] font-black text-xl shadow-2xl active:scale-[0.98] transition-all disabled:opacity-50"
+                  >
+                    {isSubmitting ? 'A GUARDAR...' : 'GRAVAR VALIDADE'}
                   </button>
                 )}
              </form>
@@ -187,52 +237,59 @@ const OperatorForm: React.FC<OperatorFormProps> = ({ user, session, onFinishTask
 
       {/* Report Modal */}
       {showReport && (
-        <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[100] flex items-center justify-center p-6">
-          <div className="bg-white w-full max-w-sm rounded-[40px] p-8 space-y-6 animate-scale-in">
-            <div className="text-center">
-              <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto mb-4">
-                 <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 17v-2m3 2v-4m3 2v-6m-9-3H9m12 0h-3.586a1 1 0 01-.707-.293l-1.414-1.414A1 1 0 0015.586 3H8.414a1 1 0 00-.707.293L6.293 4.707A1 1 0 015.586 5H2a2 2 0 00-2 2v12a2 2 0 002 2h20a2 2 0 002-2V7a2 2 0 00-2-2z" /></svg>
+        <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-xl z-[100] flex items-center justify-center p-8">
+          <div className="bg-white w-full max-w-sm rounded-[48px] p-10 space-y-8 animate-scale-in border border-white/20 shadow-2xl">
+            <div className="text-center space-y-2">
+              <div className="w-24 h-24 bg-emerald-50 text-emerald-500 rounded-[40px] flex items-center justify-center mx-auto mb-6 shadow-inner border border-emerald-100">
+                 <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               </div>
-              <h3 className="text-2xl font-black text-slate-900">Resumo da Tarefa</h3>
-              <p className="text-slate-500 text-sm mt-1">Tarefa concluída com sucesso</p>
+              <h3 className="text-3xl font-black text-slate-900 tracking-tight">Tarefa Concluída</h3>
+              <p className="text-slate-500 font-medium">Relatório da Sessão: {session.period}</p>
             </div>
 
-            <div className="bg-slate-50 rounded-3xl p-6 space-y-4 border border-slate-100">
-               <div className="flex justify-between items-center text-sm">
-                  <span className="font-bold text-slate-400 uppercase tracking-widest">Total Registos</span>
-                  <span className="font-black text-slate-900">{sessionRecords.length}</span>
+            <div className="grid grid-cols-1 gap-4">
+               <div className="flex justify-between items-center p-5 bg-slate-50 rounded-3xl border border-slate-100">
+                  <span className="font-bold text-slate-400 text-[10px] uppercase tracking-widest">Total Produtos</span>
+                  <span className="font-black text-2xl text-slate-900">{sessionRecords.length}</span>
                </div>
-               <div className="flex justify-between items-center text-sm">
-                  <span className="font-bold text-slate-400 uppercase tracking-widest">Em Alerta</span>
-                  <span className="font-black text-amber-600">{sessionRecords.filter(r => r.status === 'expiring_soon').length}</span>
+               <div className="flex justify-between items-center p-5 bg-amber-50 rounded-3xl border border-amber-100">
+                  <span className="font-bold text-amber-600/60 text-[10px] uppercase tracking-widest">A Caducar (7 dias)</span>
+                  <span className="font-black text-2xl text-amber-600">{sessionRecords.filter(r => r.status === 'expiring_soon').length}</span>
                </div>
-               <div className="flex justify-between items-center text-sm">
-                  <span className="font-bold text-slate-400 uppercase tracking-widest">Expirados</span>
-                  <span className="font-black text-red-600">{sessionRecords.filter(r => r.status === 'expired').length}</span>
+               <div className="flex justify-between items-center p-5 bg-red-50 rounded-3xl border border-red-100">
+                  <span className="font-bold text-red-600/60 text-[10px] uppercase tracking-widest">Expirados</span>
+                  <span className="font-black text-2xl text-red-600">{sessionRecords.filter(r => r.status === 'expired').length}</span>
                </div>
             </div>
 
-            <div className="text-center space-y-1">
-               <p className="text-[10px] font-bold text-slate-400 uppercase">Enviar relatório para:</p>
+            <div className="text-center space-y-1 py-2">
+               <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Email de Destino</p>
                <p className="text-sm font-black text-indigo-600">{session.reportEmail}</p>
             </div>
 
-            <button 
-              onClick={sendReport}
-              disabled={sendingReport}
-              className="w-full py-5 bg-indigo-600 text-white rounded-[28px] font-black text-lg shadow-xl shadow-indigo-100 flex items-center justify-center gap-3 transition-all active:scale-95"
-            >
-              {sendingReport ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  A enviar...
-                </>
-              ) : 'Enviar e Sair'}
-            </button>
-            
-            {!sendingReport && (
-              <button onClick={() => setShowReport(false)} className="w-full py-2 text-slate-400 font-bold text-sm">Continuar a registar</button>
-            )}
+            <div className="space-y-4">
+              <button 
+                onClick={sendReport}
+                disabled={sendingReport}
+                className="w-full py-6 bg-indigo-600 text-white rounded-[32px] font-black text-xl shadow-xl shadow-indigo-200 flex items-center justify-center gap-3 transition-all active:scale-95"
+              >
+                {sendingReport ? (
+                  <>
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                    A ENVIAR...
+                  </>
+                ) : 'ENVIAR RELATÓRIO'}
+              </button>
+              
+              {!sendingReport && (
+                <button 
+                  onClick={() => setShowReport(false)} 
+                  className="w-full py-2 text-slate-400 font-bold text-xs uppercase tracking-widest hover:text-slate-600 transition-colors"
+                >
+                  Continuar a registar
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
