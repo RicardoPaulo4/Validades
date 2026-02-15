@@ -28,6 +28,7 @@ const App: React.FC = () => {
           isLoading: false
         });
       } catch (e) {
+        console.error("Erro ao carregar sessão:", e);
         localStorage.removeItem('v_user');
         localStorage.removeItem('v_session');
         setAuthState(prev => ({ ...prev, isLoading: false }));
