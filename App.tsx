@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { User, AuthState, SessionData } from './types';
-import Auth from './components/Auth';
-import AdminDashboard from './components/AdminDashboard';
-import OperatorForm from './components/OperatorForm';
-import Layout from './components/Layout';
-import PeriodSelector from './components/PeriodSelector';
+import { User, AuthState, SessionData } from './types.ts';
+import Auth from './components/Auth.tsx';
+import AdminDashboard from './components/AdminDashboard.tsx';
+import OperatorForm from './components/OperatorForm.tsx';
+import Layout from './components/Layout.tsx';
+import PeriodSelector from './components/PeriodSelector.tsx';
 
 const App: React.FC = () => {
   const [authState, setAuthState] = useState<AuthState>({

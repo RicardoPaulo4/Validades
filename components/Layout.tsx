@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { User, Period } from '../types';
+import { User, Period } from '../types.ts';
 
 interface LayoutProps {
   user: User;
@@ -59,7 +59,6 @@ const Layout: React.FC<LayoutProps> = ({
         {children}
       </main>
 
-      {/* Modern Glassy Bottom Nav for Operators */}
       {user.role === 'operator' && (
         <nav className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-2xl border-t border-slate-200 sm:hidden flex justify-around items-center h-20 safe-bottom z-50 px-8">
           <button 
