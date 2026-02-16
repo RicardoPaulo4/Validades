@@ -1,11 +1,10 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
-// We use gemini-3-flash-preview for fast image processing and text extraction
 const MODEL_NAME = 'gemini-3-flash-preview';
 
 export async function analyzeProductLabel(base64Image: string) {
-  // Always use process.env.API_KEY directly without fallbacks or modifications
+  // Inicializa o SDK com a chave de ambiente injetada
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const imagePart = {
@@ -15,7 +14,7 @@ export async function analyzeProductLabel(base64Image: string) {
     },
   };
 
-  const prompt = "Analisa esta imagem de um rótulo de produto. Extrai o nome do produto e a data de validade. Se não encontrares a data exata, tenta estimar com base em códigos de lote se visíveis. Responde apenas em formato JSON.";
+  const prompt = "Analisa esta imagem de um rótulo de produto ou selo de validade. Extrai o NOME DO PRODUTO e a DATA DE VALIDADE (EXPIRY DATE). Se encontrares apenas o mês/ano, assume o último dia do mês. Responde obrigatoriamente em formato JSON seguindo o esquema definido.";
 
   try {
     const response = await ai.models.generateContent({
@@ -26,20 +25,21 @@ export async function analyzeProductLabel(base64Image: string) {
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            productName: { type: Type.STRING, description: "Nome do produto detetado" },
-            expiryDate: { type: Type.STRING, description: "Data de validade no formato YYYY-MM-DD" },
-            confidence: { type: Type.NUMBER, description: "Nível de confiança de 0 a 1" }
+            productName: { type: Type.STRING, description: "Nome detetado do produto (Ex: Iogurte Grego)" },
+            expiryDate: { type: Type.STRING, description: "Data de validade formatada como YYYY-MM-DD" },
+            confidence: { type: Type.NUMBER, description: "Confiança na deteção (0 a 1)" }
           },
           required: ["productName", "expiryDate"]
         }
       }
     });
 
-    // Directly access the .text property from the GenerateContentResponse object
-    const jsonStr = response.text;
-    return JSON.parse(jsonStr || '{}');
+    const text = response.text;
+    if (!text) return null;
+    
+    return JSON.parse(text);
   } catch (error) {
-    console.error("Erro ao analisar imagem com Gemini:", error);
+    console.error("Erro na análise Gemini AI:", error);
     return null;
   }
 }
