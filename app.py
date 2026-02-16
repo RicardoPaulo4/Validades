@@ -1,7 +1,65 @@
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
-from datetime import datetime, timedelta
+import re # Para validar o formato do email
+
+# --- FUNÇÃO PARA VALIDAR EMAIL ---
+def email_valido(email):
+    regex = r'^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}$'
+    return re.search(regex, email)
+
+# ... (conexão e funções de dados mantêm-se)
+
+if 'auth' not in st.session_state:
+    st.title("🔐 Acesso Equipa")
+    tab_login, tab_registo = st.tabs(["Entrar", "Criar Conta"])
+
+    with tab_login:
+        email_input = st.text_input("Email")
+        p_input = st.text_input("Password", type="password")
+        if st.button("Entrar"):
+            if email_input == "admin@admin.com" and p_input == "admin123":
+                st.session_state.auth = "admin"
+                st.rerun()
+            else:
+                df_u = get_data("utilizadores")
+                # Procurar pelo email na base de dados
+                user_match = df_u[(df_u['email'] == email_input) & (df_u['password'] == p_input)]
+                
+                if not user_match.empty:
+                    if user_match.iloc[0]['status'] == 'Ativo':
+                        st.session_state.auth = "user"
+                        st.session_state.username = user_match.iloc[0]['nome']
+                        st.rerun()
+                    else:
+                        st.warning("O teu acesso ainda não foi ativado pelo Administrador.")
+                else:
+                    st.error("Email ou password incorretos.")
+
+    with tab_registo:
+        st.subheader("Novo Registo")
+        novo_nome = st.text_input("Nome Completo")
+        novo_email = st.text_input("Email Profissional")
+        nova_pass = st.text_input("Senha", type="password")
+        
+        if st.button("Solicitar Acesso"):
+            if not email_valido(novo_email):
+                st.error("Por favor, insere um email válido.")
+            else:
+                df_u = get_data("utilizadores")
+                if novo_email in df_u['email'].values:
+                    st.error("Este email já está registado.")
+                else:
+                    novo_u_df = pd.DataFrame([{
+                        "nome": novo_nome, 
+                        "email": novo_email, 
+                        "password": nova_pass, 
+                        "status": "Pendente"
+                    }])
+                    df_final = pd.concat([df_u, novo_u_df], ignore_index=True)
+                    save_data(df_final, "utilizadores")
+                    st.success("Pedido enviado! O Admin irá validar o seu email.")
+    st.stop()
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Gestão de Validades", layout="wide")
