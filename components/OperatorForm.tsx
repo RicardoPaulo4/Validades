@@ -1,7 +1,8 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { User, ProductTemplate, Period, SessionData, ValidityRecord } from '../types';
 import { supabaseService } from '../services/supabaseService';
+import { analyzeProductLabel } from '../services/geminiService';
 
 interface OperatorFormProps {
   user: User;
@@ -17,12 +18,14 @@ const OperatorForm: React.FC<OperatorFormProps> = ({ user, session, onFinishTask
   const [manualTime, setManualTime] = useState('');
   const [noTime, setNoTime] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [success, setSuccess] = useState(false);
   const [alertExpired, setAlertExpired] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
   const [showReport, setShowReport] = useState(false);
   const [sendingReport, setSendingReport] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     supabaseService.getTemplates().then(all => {
@@ -35,7 +38,6 @@ const OperatorForm: React.FC<OperatorFormProps> = ({ user, session, onFinishTask
     const suggestion = new Date();
     suggestion.setDate(suggestion.getDate() + t.tempo_vida_dias);
     setExpiryDate(suggestion.toISOString().split('T')[0]);
-    // Forced manual hour entry: always starts empty
     setManualTime('');
   };
 
@@ -45,6 +47,39 @@ const OperatorForm: React.FC<OperatorFormProps> = ({ user, session, onFinishTask
     const today = new Date();
     today.setHours(0,0,0,0);
     setAlertExpired(selected < today);
+  };
+
+  const handleAIAnalyze = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsAnalyzing(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = reader.result as string;
+        const result = await analyzeProductLabel(base64);
+        
+        if (result && result.expiryDate) {
+          setExpiryDate(result.expiryDate);
+          // Try to match template name
+          if (result.productName) {
+            const match = templates.find(t => 
+              result.productName.toLowerCase().includes(t.nome.toLowerCase()) ||
+              t.nome.toLowerCase().includes(result.productName.toLowerCase())
+            );
+            if (match) setSelectedTemplate(match);
+          }
+        } else {
+          alert('Não foi possível detetar a data automaticamente. Por favor, insira manualmente.');
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -96,7 +131,6 @@ const OperatorForm: React.FC<OperatorFormProps> = ({ user, session, onFinishTask
 
   const sendReport = () => {
     setSendingReport(true);
-    // Realistic email sending simulation
     setTimeout(() => {
       setSendingReport(false);
       alert(`O relatório foi gerado e enviado com sucesso para ${session.reportEmail}`);
@@ -121,14 +155,30 @@ const OperatorForm: React.FC<OperatorFormProps> = ({ user, session, onFinishTask
             </div>
           </div>
 
-          <div className="relative">
-            <input 
-              type="text" placeholder="Pesquisar produto no catálogo..."
-              className="w-full p-5 bg-white border border-slate-200 rounded-3xl shadow-sm pl-14 font-medium outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-              value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-            />
-            <svg className="w-6 h-6 absolute left-5 top-4.5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          <div className="flex gap-3">
+            <div className="relative flex-1">
+              <input 
+                type="text" placeholder="Pesquisar catálogo..."
+                className="w-full p-5 bg-white border border-slate-200 rounded-3xl shadow-sm pl-14 font-medium outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+              />
+              <svg className="w-6 h-6 absolute left-5 top-4.5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            </div>
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              className={`p-5 bg-indigo-600 text-white rounded-3xl shadow-lg active:scale-95 transition-all ${isAnalyzing ? 'animate-pulse opacity-70' : ''}`}
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" capture="environment" onChange={handleAIAnalyze} />
+            </button>
           </div>
+
+          {isAnalyzing && (
+            <div className="bg-indigo-50 p-4 rounded-2xl flex items-center gap-3 animate-pulse">
+               <div className="animate-spin h-5 w-5 border-2 border-indigo-600 border-t-transparent rounded-full"></div>
+               <p className="text-indigo-700 text-xs font-bold uppercase tracking-wider">A extrair dados com IA...</p>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             {filteredTemplates.map(t => (
@@ -142,7 +192,6 @@ const OperatorForm: React.FC<OperatorFormProps> = ({ user, session, onFinishTask
             ))}
           </div>
 
-          {/* Floating Finish Button */}
           <div className="fixed bottom-24 left-0 right-0 px-8 flex justify-center pointer-events-none z-40">
             <button 
               onClick={handleFinishSession}
@@ -235,7 +284,6 @@ const OperatorForm: React.FC<OperatorFormProps> = ({ user, session, onFinishTask
         </div>
       )}
 
-      {/* Report Modal */}
       {showReport && (
         <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-xl z-[100] flex items-center justify-center p-8">
           <div className="bg-white w-full max-w-sm rounded-[48px] p-10 space-y-8 animate-scale-in border border-white/20 shadow-2xl">

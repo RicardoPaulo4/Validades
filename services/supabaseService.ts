@@ -2,16 +2,12 @@
 import { createClient } from '@supabase/supabase-js';
 import { ValidityRecord, ProductTemplate, User } from '../types';
 
-// O SDK injeta as variáveis no process.env
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseUrl = 'https://jpemxxdpbndazwwmbpyt.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpwZW14eGRwYm5kYXp3d21icHl0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExOTEzMDIsImV4cCI6MjA4Njc2NzMwMn0.QH2dDFql8ywlZZiJHLo7QkbOLjyxEsT5JAiS5FSHHgA';
 
-// Verifica se estamos em modo mock ou real
-const isMocked = !supabaseUrl || supabaseUrl.includes('your-project') || !supabaseAnonKey;
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-const supabase = !isMocked ? createClient(supabaseUrl, supabaseAnonKey) : null;
-
-// Função auxiliar para calcular o status baseado na data
+// Helper to calculate status locally
 function calculateStatus(r: any): ValidityRecord {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
@@ -30,78 +26,68 @@ function calculateStatus(r: any): ValidityRecord {
 
 export const supabaseService = {
   getTemplates: async (): Promise<ProductTemplate[]> => {
-    if (isMocked) {
+    const { data, error } = await supabase.from('templates').select('*');
+    if (error) {
+      console.warn("Error fetching templates, falling back to local storage:", error);
       const stored = localStorage.getItem('vc_templates');
       return stored ? JSON.parse(stored) : [];
-    }
-    const { data, error } = await supabase!.from('templates').select('*');
-    if (error) {
-      console.warn("Erro ao buscar templates, usando local:", error);
-      return [];
     }
     return data || [];
   },
 
   addTemplate: async (template: Omit<ProductTemplate, 'id'>): Promise<ProductTemplate> => {
-    if (isMocked) {
-      const templates = await supabaseService.getTemplates();
-      const newT: ProductTemplate = { ...template, id: Math.random().toString(36).substr(2, 9) };
+    const { data, error } = await supabase.from('templates').insert([template]).select().single();
+    if (error) {
+      console.warn("Error adding template to Supabase, saving locally:", error);
+      const templates = JSON.parse(localStorage.getItem('vc_templates') || '[]');
+      const newT = { ...template, id: Math.random().toString(36).substr(2, 9) };
       localStorage.setItem('vc_templates', JSON.stringify([...templates, newT]));
       return newT;
     }
-    const { data, error } = await supabase!.from('templates').insert([template]).select().single();
-    if (error) throw error;
     return data;
   },
 
   getRecords: async (): Promise<ValidityRecord[]> => {
-    if (isMocked) {
-      const stored = localStorage.getItem('vc_records');
-      const records = stored ? JSON.parse(stored) : [];
-      return records.map(calculateStatus);
-    }
-    const { data, error } = await supabase!.from('registos').select('*').order('data_validade', { ascending: true });
+    const { data, error } = await supabase.from('registos').select('*').order('data_validade', { ascending: true });
     if (error) {
-      console.warn("Erro ao buscar registos:", error);
-      return [];
+      console.warn("Error fetching records, falling back to local storage:", error);
+      const stored = localStorage.getItem('vc_records');
+      return (stored ? JSON.parse(stored) : []).map(calculateStatus);
     }
     return (data || []).map(calculateStatus);
   },
 
   addRecord: async (record: Omit<ValidityRecord, 'id' | 'status'>): Promise<ValidityRecord> => {
-    if (isMocked) {
-      const records = await supabaseService.getRecords();
-      const newR: ValidityRecord = { 
-        ...record, 
-        id: Math.random().toString(36).substr(2, 9),
-        status: 'valid' // Será recalculado
-      };
-      const updatedRecords = [newR, ...records];
-      localStorage.setItem('vc_records', JSON.stringify(updatedRecords));
+    const { data, error } = await supabase.from('registos').insert([record]).select().single();
+    if (error) {
+      console.warn("Error adding record to Supabase, saving locally:", error);
+      const records = JSON.parse(localStorage.getItem('vc_records') || '[]');
+      const newR = { ...record, id: Math.random().toString(36).substr(2, 9) };
+      localStorage.setItem('vc_records', JSON.stringify([newR, ...records]));
       return calculateStatus(newR);
     }
-    const { data, error } = await supabase!.from('registos').insert([record]).select().single();
-    if (error) throw error;
     return calculateStatus(data);
   },
 
   deleteRecord: async (id: string, user: User): Promise<boolean> => {
     if (user.role !== 'admin') return false;
-    if (isMocked) {
+    const { error } = await supabase.from('registos').delete().eq('id', id);
+    if (error) {
+      console.warn("Error deleting record from Supabase, removing locally:", error);
       const records = JSON.parse(localStorage.getItem('vc_records') || '[]');
       localStorage.setItem('vc_records', JSON.stringify(records.filter((r: any) => r.id !== id)));
       return true;
     }
-    const { error } = await supabase!.from('registos').delete().eq('id', id);
-    return !error;
+    return true;
   },
 
   uploadImage: async (blob: Blob, fileName: string): Promise<string> => {
-    // Para simplificar no modo web puro, usamos ObjectURL se for mock
-    if (isMocked) return URL.createObjectURL(blob);
-    
-    const { data, error } = await supabase!.storage.from('produtos_fotos').upload(`${Date.now()}_${fileName}`, blob);
-    if (error) throw error;
-    return supabase!.storage.from('produtos_fotos').getPublicUrl(data.path).data.publicUrl;
+    const filePath = `${Date.now()}_${fileName}`;
+    const { data, error } = await supabase.storage.from('produtos_fotos').upload(filePath, blob);
+    if (error) {
+      console.warn("Error uploading image, using local blob URL:", error);
+      return URL.createObjectURL(blob);
+    }
+    return supabase.storage.from('produtos_fotos').getPublicUrl(data.path).data.publicUrl;
   }
 };
