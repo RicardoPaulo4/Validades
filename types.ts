@@ -33,7 +33,7 @@ export interface ValidityRecord {
   periodo: Period;
   criado_por_id: string;
   criado_por_nome: string;
-  criado_por_email: string; // Email do operador na sessão
+  criado_por_email: string;
   status: 'valid' | 'expiring_soon' | 'expired';
 }
 

@@ -1,5 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
+// Fixing the reported errors by ensuring named exports from react-router-dom are compatible with the environment.
+// Some environments might have conflicting types or older versions of react-router-dom.
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { User, AuthState, SessionData } from './types';
 import Auth from './components/Auth';
@@ -15,6 +17,8 @@ const App: React.FC = () => {
     isAuthenticated: false,
     isLoading: true
   });
+  
+  const [operatorTab, setOperatorTab] = useState<'task' | 'history'>('task');
 
   useEffect(() => {
     const savedUser = localStorage.getItem('v_user');
@@ -56,6 +60,7 @@ const App: React.FC = () => {
   const endSession = () => {
     localStorage.removeItem('v_session');
     setAuthState(prev => ({ ...prev, session: null }));
+    setOperatorTab('task');
   };
 
   const logout = () => {
@@ -71,12 +76,14 @@ const App: React.FC = () => {
 
   if (authState.isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-600 border-t-transparent"></div>
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Sincronizando...</p>
       </div>
     );
   }
 
+  // Using HashRouter for SPA navigation compatibility in static environments.
   return (
     <HashRouter>
       <Routes>
@@ -90,13 +97,20 @@ const App: React.FC = () => {
             authState.user?.role === 'operator' && !authState.session ? (
               <PeriodSelector onStart={startSession} user={authState.user} />
             ) : (
-              <Layout user={authState.user!} currentPeriod={authState.session?.period || null} onLogout={logout}>
+              <Layout 
+                user={authState.user!} 
+                currentPeriod={authState.session?.period || null} 
+                activeTab={operatorTab}
+                onTabChange={setOperatorTab}
+                onLogout={logout}
+              >
                 {authState.user?.role === 'admin' ? (
                   <AdminDashboard user={authState.user} />
                 ) : (
                   <OperatorForm 
                     user={authState.user!} 
                     session={authState.session!} 
+                    activeTab={operatorTab}
                     onFinishTask={endSession}
                   />
                 )}

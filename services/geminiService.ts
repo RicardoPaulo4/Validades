@@ -1,10 +1,11 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
+// Use gemini-3-flash-preview for general purpose multimodal extraction tasks.
 const MODEL_NAME = 'gemini-3-flash-preview';
 
 export async function analyzeProductLabel(base64Image: string) {
-  // Inicializa o SDK com a chave de ambiente injetada
+  // Always initialize GoogleGenAI with a named apiKey parameter from process.env.API_KEY
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const imagePart = {
@@ -17,6 +18,7 @@ export async function analyzeProductLabel(base64Image: string) {
   const prompt = "Analisa esta imagem de um rótulo de produto ou selo de validade. Extrai o NOME DO PRODUTO e a DATA DE VALIDADE (EXPIRY DATE). Se encontrares apenas o mês/ano, assume o último dia do mês. Responde obrigatoriamente em formato JSON seguindo o esquema definido.";
 
   try {
+    // Calling ai.models.generateContent with both model name and prompt parts.
     const response = await ai.models.generateContent({
       model: MODEL_NAME,
       contents: { parts: [imagePart, { text: prompt }] },
@@ -34,6 +36,7 @@ export async function analyzeProductLabel(base64Image: string) {
       }
     });
 
+    // Directly access the text property of the GenerateContentResponse object.
     const text = response.text;
     if (!text) return null;
     

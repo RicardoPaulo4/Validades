@@ -3,14 +3,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import { User, ProductTemplate, SessionData, ValidityRecord } from '../types';
 import { supabaseService } from '../services/supabaseService';
 import { analyzeProductLabel } from '../services/geminiService';
+import StatusBadge from './StatusBadge';
 
 interface OperatorFormProps {
   user: User;
   session: SessionData;
+  activeTab?: 'task' | 'history';
   onFinishTask: () => void;
 }
 
-const OperatorForm: React.FC<OperatorFormProps> = ({ user, session, onFinishTask }) => {
+const OperatorForm: React.FC<OperatorFormProps> = ({ user, session, activeTab = 'task', onFinishTask }) => {
   const [templates, setTemplates] = useState<ProductTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<ProductTemplate | null>(null);
   const [sessionRecords, setSessionRecords] = useState<ValidityRecord[]>([]);
@@ -120,9 +122,52 @@ const OperatorForm: React.FC<OperatorFormProps> = ({ user, session, onFinishTask
     }
   };
 
+  const handleDeleteFromHistory = async (id: string) => {
+    if (confirm('Eliminar este registo da sessão atual?')) {
+      await supabaseService.deleteRecord(id, user);
+      setSessionRecords(prev => prev.filter(r => r.id !== id));
+    }
+  };
+
   const filteredTemplates = templates.filter(t => 
     t.nome.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  if (activeTab === 'history') {
+    return (
+      <div className="max-w-xl mx-auto space-y-6 pb-24 animate-fade-in">
+        <div className="flex justify-between items-center px-1">
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight">Registos da Sessão</h2>
+          <span className="bg-slate-900 text-white text-[10px] font-black px-3 py-1 rounded-full">{sessionRecords.length} TOTAL</span>
+        </div>
+
+        <div className="grid gap-4">
+          {sessionRecords.length === 0 ? (
+            <div className="bg-white p-12 rounded-[40px] border border-dashed border-slate-200 text-center space-y-4">
+              <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-300">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              </div>
+              <p className="text-slate-400 font-bold text-sm">Ainda não fez registos nesta sessão.</p>
+            </div>
+          ) : sessionRecords.map(r => (
+            <div key={r.id} className="bg-white p-4 rounded-[32px] border border-slate-100 shadow-sm flex items-center gap-4">
+              <img src={r.imagem_url} className="w-14 h-14 rounded-2xl object-cover shrink-0" alt="" />
+              <div className="flex-1 min-w-0">
+                <h4 className="font-bold text-slate-900 text-sm truncate">{r.nome_produto}</h4>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{new Date(r.data_validade).toLocaleDateString('pt-PT')}</p>
+              </div>
+              <div className="flex flex-col items-end gap-2">
+                <StatusBadge status={r.status} />
+                <button onClick={() => handleDeleteFromHistory(r.id)} className="text-slate-300 hover:text-red-500 transition-colors p-1">
+                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-xl mx-auto space-y-8 pb-32">
@@ -196,7 +241,7 @@ const OperatorForm: React.FC<OperatorFormProps> = ({ user, session, onFinishTask
             ))}
           </div>
 
-          <div className="fixed bottom-8 left-0 right-0 px-6 flex justify-center z-40 pointer-events-none">
+          <div className="fixed bottom-24 left-0 right-0 px-6 flex justify-center z-40 pointer-events-none sm:static sm:px-0">
             <button 
               onClick={() => setShowReport(true)}
               className="pointer-events-auto w-full max-w-sm py-5 bg-slate-900 text-white rounded-[30px] font-extrabold text-lg shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all"
