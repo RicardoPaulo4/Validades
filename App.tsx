@@ -1,7 +1,5 @@
 
 import React, { useState, useEffect } from 'react';
-// Fixing the reported errors by ensuring named exports from react-router-dom are compatible with the environment.
-// Some environments might have conflicting types or older versions of react-router-dom.
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { User, AuthState, SessionData } from './types';
 import Auth from './components/Auth';
@@ -83,7 +81,6 @@ const App: React.FC = () => {
     );
   }
 
-  // Using HashRouter for SPA navigation compatibility in static environments.
   return (
     <HashRouter>
       <Routes>
