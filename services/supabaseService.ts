@@ -1,9 +1,8 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { ValidityRecord, ProductTemplate, User } from '../types';
+import { ValidityRecord, ProductTemplate, User } from '../types.ts';
 
 // Credenciais do Supabase - Prioridade para Variáveis de Ambiente
-// Note: NEXT_PUBLIC_ prefixes are standard for Next.js but we use them here as fallback strings
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://jpemxxdpbndazwwmbpyt.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpwZW14eGRwYm5kYXp3d21icHl0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExOTEzMDIsImV4cCI6MjA4Njc2NzMwMn0.QH2dDFql8ywlZZiJHLo7QkbOLjyxEsT5JAiS5FSHHgA';
 
@@ -96,7 +95,6 @@ export const supabaseService = {
       if (error) throw error;
       return supabase.storage.from('produtos_fotos').getPublicUrl(data.path).data.publicUrl;
     } catch (err) {
-      // Return a stable placeholder if upload fails or is not configured
       return `https://images.unsplash.com/photo-1550989460-0adf9ea622e2?q=80&w=200&auto=format&fit=crop`;
     }
   }

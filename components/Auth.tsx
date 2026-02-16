@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { User } from '../types';
+import { User } from '../types.ts';
 
 interface AuthProps {
   onLogin: (user: User) => void;
@@ -94,10 +94,10 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
            <div className="bg-indigo-50/50 p-4 rounded-3xl border border-indigo-100/50">
              <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest text-center mb-2">Credenciais de Demonstração</p>
              <div className="flex justify-around">
-               <div className="text-[10px] font-bold text-slate-600">Admin: <span className="text-indigo-600">admin@valida.com</span> / admin123</div>
+               <div className="text-[10px] font-bold text-slate-600">Admin: admin@valida.com / admin123</div>
              </div>
              <div className="flex justify-around mt-1">
-               <div className="text-[10px] font-bold text-slate-600">Op: <span className="text-indigo-600">op@valida.com</span> / op123</div>
+               <div className="text-[10px] font-bold text-slate-600">Op: op@valida.com / op123</div>
              </div>
            </div>
         </div>
