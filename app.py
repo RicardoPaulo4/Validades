@@ -23,3 +23,18 @@ if not st.session_state.logado:
 # Se passar daqui, o utilizador está dentro
 user_info = st.user # Obtém os dados do utilizador logado
 st.write(f"Olá, {user_info.email}!")
+import streamlit as st
+
+# O Streamlit gere o login automaticamente se os Secrets estiverem corretos
+if not st.experimental_user.is_logged_in:
+    st.title("🔐 Acesso via Google")
+    if st.button("Entrar com Google"):
+        st.login()
+    st.stop()
+
+# Se logado, mostra o email
+user = st.experimental_user
+st.success(f"Ligado como: {user.email}")
+
+if st.sidebar.button("Sair"):
+    st.logout()
