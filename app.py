@@ -4,9 +4,77 @@ import pandas as pd
 from datetime import datetime
 
 # 1. CONFIGURAÇÃO DA PÁGINA
-st.set_page_config(page_title="Registo de Validades", layout="wide")
+st.set_page_config(page_title="ValidaControl - Smart Expiry", layout="centered", page_icon="🔐")
 
-# 2. UTILIZADORES (ADMIN: Ricardo | USERS: Miguel, Brites, Toni)
+# --- ESTILO CSS PARA DESIGN PROFISSIONAL ---
+st.markdown("""
+    <style>
+    /* Esconder elementos padrão do Streamlit */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
+    /* Fundo da página */
+    .stApp {
+        background-color: #F8F9FF;
+    }
+
+    /* Contentor do Login */
+    .login-box {
+        background-color: white;
+        padding: 40px;
+        border-radius: 30px;
+        box-shadow: 0px 10px 30px rgba(0, 0, 0, 0.05);
+        text-align: center;
+    }
+
+    /* Estilização dos inputs */
+    .stTextInput > div > div > input {
+        background-color: #F1F4F9;
+        border: none;
+        border-radius: 15px;
+        padding: 15px;
+        height: 50px;
+    }
+
+    /* Botão Entrar (Escuro como na imagem) */
+    div.stButton > button {
+        background-color: #111827;
+        color: white;
+        width: 100%;
+        border-radius: 20px;
+        height: 60px;
+        font-weight: bold;
+        font-size: 18px;
+        border: none;
+        transition: 0.3s;
+    }
+    
+    div.stButton > button:hover {
+        background-color: #2D3748;
+        color: white;
+    }
+
+    /* Logo e Títulos */
+    .main-title {
+        color: #111827;
+        font-family: 'Helvetica Neue', sans-serif;
+        font-weight: 800;
+        font-size: 32px;
+        margin-bottom: 0px;
+    }
+    .main-title span { color: #6366F1; }
+    .sub-title {
+        color: #9CA3AF;
+        letter-spacing: 2px;
+        font-size: 12px;
+        font-weight: 600;
+        margin-bottom: 30px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# 2. DEFINIÇÃO DE UTILIZADORES
 utilizadores = {
     "ricardo": {"senha": "123", "nivel": "admin"},
     "miguel": {"senha": "111", "nivel": "user"},
@@ -17,79 +85,41 @@ utilizadores = {
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
 
-# --- LÓGICA DE LOGIN ---
+# --- ECRÃ DE LOGIN ESTILIZADO ---
 if not st.session_state.autenticado:
-    st.title("🔐 Login")
-    u = st.text_input("Utilizador").lower().strip()
-    p = st.text_input("Palavra-passe", type="password")
-    if st.button("Entrar"):
-        if u in utilizadores and utilizadores[u]["senha"] == p:
-            st.session_state.autenticado = True
-            st.session_state.user = u
-            st.session_state.nivel = utilizadores[u]["nivel"]
-            st.rerun()
+    # Cabeçalho Visual
+    st.markdown("<div style='text-align: center; margin-top: 50px;'>", unsafe_allow_html=True)
+    st.image("https://cdn-icons-png.flaticon.com/512/10552/10552013.png", width=80) # Ícone de check azul
+    st.markdown("<h1 class='main-title'>Valida<span>Control</span></h1>", unsafe_allow_html=True)
+    st.markdown("<p class='sub-title'>SMART EXPIRY SYSTEMS</p>", unsafe_allow_html=True)
+    
+    # Formulário
+    with st.container():
+        u = st.text_input("EMAIL EMPRESARIAL", placeholder="ex: ricardo@loja.pt").lower().strip()
+        p = st.text_input("PALAVRA-PASSE", type="password", placeholder="••••••••")
+        
+        if st.button("Entrar na Loja"):
+            if u in utilizadores and utilizadores[u]["senha"] == p:
+                st.session_state.autenticado = True
+                st.session_state.user = u
+                st.session_state.nivel = utilizadores[u]["nivel"]
+                st.rerun()
+            else:
+                st.error("Credenciais incorretas")
+    st.markdown("</div>", unsafe_allow_html=True)
     st.stop()
 
-# --- CONEXÃO AO GOOGLE SHEETS ---
+# --- CONEXÃO AO SHEETS (Área Interna) ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- ÁREA ADMIN (DASHBOARD) ---
+# Conteúdo após o login (Admin/User)
 if st.session_state.nivel == "admin":
-    st.title("🛠️ Painel Admin - Ricardo")
-    st.subheader("Registos Efetuados")
-    try:
-        df_registos = conn.read(worksheet="registos", ttl=0)
-        st.dataframe(df_registos, use_container_width=True)
-    except:
-        st.warning("A aba 'registos' ainda está vazia ou não foi criada.")
-
-# --- ÁREA USER (SELEÇÃO POR IMAGEM) ---
+    st.title("🛠️ Painel Admin")
+    # ... resto do código do Dashboard ...
 else:
-    st.title("📦 Selecione o Produto")
-    
-    try:
-        # Lê a lista de produtos que criaste no Sheets
-        df_produtos = conn.read(worksheet="produtos", ttl=0)
-        
-        # Cria colunas para mostrar as imagens lado a lado
-        cols = st.columns(3) 
-        
-        for index, row in df_produtos.iterrows():
-            with cols[index % 3]:
-                # EXIBE A IMAGEM REAL (não o link)
-                st.image(row['Foto_URL'], use_container_width=True)
-                
-                # BOTÃO DE SELEÇÃO POR BAIXO DA IMAGEM
-                if st.button(f"Registar {row['Nome']}", key=f"btn_{index}"):
-                    st.session_state.produto_escolhido = row['Nome']
-        
-        # FORMULÁRIO QUE APARECE APÓS CLICAR NA IMAGEM
-        if "produto_escolhido" in st.session_state:
-            st.divider()
-            st.subheader(f"Registo para: {st.session_state.produto_escolhido}")
-            
-            with st.form("form_validade"):
-                data_v = st.date_input("Data de Validade")
-                sem_hora = st.checkbox("Registo sem hora")
-                hora_v = st.time_input("Hora") if not sem_hora else "N/A"
-                
-                if st.form_submit_button("Confirmar Registo"):
-                    # Aqui a app grava no Sheets (Aba registos)
-                    novo_reg = pd.DataFrame([{
-                        "Produto": st.session_state.produto_escolhido,
-                        "Data_Validade": str(data_v),
-                        "Hora": str(hora_v),
-                        "Utilizador": st.session_state.user,
-                        "Data_Registo": datetime.now().strftime("%d/%m/%Y %H:%M")
-                    }])
-                    conn.create(worksheet="registos", data=novo_reg)
-                    st.success(f"✅ Feito! {st.session_state.produto_escolhido} guardado.")
-                    del st.session_state.produto_escolhido # Limpa seleção para o próximo
+    st.title("📦 Seleção de Produto")
+    # ... resto do código das Fotos ...
 
-    except Exception as e:
-        st.error("Erro: Garante que a aba 'produtos' existe e tem as colunas 'Nome' e 'Foto_URL'.")
-
-# SAIR
-if st.sidebar.button("Sair"):
+if st.sidebar.button("Terminar Sessão"):
     st.session_state.autenticado = False
     st.rerun()
