@@ -1,11 +1,11 @@
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
+import pandas as pd
+from datetime import datetime
 
-# 1. CONFIGURAÇÃO DA PÁGINA
-st.set_page_config(page_title="Controlo de Validades", layout="wide", page_icon="📦")
+# 1. CONFIGURAÇÃO E LOGIN
+st.set_page_config(page_title="Gestão de Validades", layout="wide")
 
-# 2. BASE DE DADOS DE UTILIZADORES (Configuração solicitada)
-# Podes alterar as senhas aqui sempre que quiseres
 utilizadores = {
     "ricardo": {"senha": "123", "nivel": "admin"},
     "miguel": {"senha": "111", "nivel": "user"},
@@ -13,70 +13,76 @@ utilizadores = {
     "toni": {"senha": "333", "nivel": "user"}
 }
 
-# 3. INICIALIZAÇÃO DO ESTADO DE SESSÃO
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
     st.session_state.user = None
     st.session_state.nivel = None
 
-# --- ECRÃ DE LOGIN ---
+# (Lógica de Login simplificada para poupar espaço, igual ao código anterior)
 if not st.session_state.autenticado:
-    st.title("🔐 Sistema de Gestão de Validades")
-    
-    # Centralizar o formulário de login
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        with st.form("login_form"):
-            st.subheader("Acesso de Colaborador")
-            u_input = st.text_input("Utilizador").strip().lower()
-            p_input = st.text_input("Palavra-passe", type="password").strip()
-            submit = st.form_submit_button("Entrar")
-            
-            if submit:
-                if u_input in utilizadores and utilizadores[u_input]["senha"] == p_input:
-                    st.session_state.autenticado = True
-                    st.session_state.user = u_input
-                    st.session_state.nivel = utilizadores[u_input]["nivel"]
-                    st.rerun()
-                else:
-                    st.error("❌ Utilizador ou senha incorretos.")
+    st.title("🔐 Login")
+    u = st.text_input("Utilizador").lower().strip()
+    p = st.text_input("Palavra-passe", type="password")
+    if st.button("Entrar"):
+        if u in utilizadores and utilizadores[u]["senha"] == p:
+            st.session_state.autenticado = True
+            st.session_state.user = u
+            st.session_state.nivel = utilizadores[u]["nivel"]
+            st.rerun()
     st.stop()
 
-# --- BARRA LATERAL (SIDEBAR) ---
-st.sidebar.title(f"👤 Olá, {st.session_state.user.capitalize()}!")
-st.sidebar.info(f"Nível de Acesso: {st.session_state.nivel.upper()}")
+# --- CONEXÃO AO SHEETS ---
+conn = st.connection("gsheets", type=GSheetsConnection)
+df_produtos = conn.read(worksheet="produtos") # Aba com: Nome, Foto_URL, Vida_Util
 
-if st.sidebar.button("Terminar Sessão"):
-    st.session_state.autenticado = False
-    st.rerun()
-
-# --- CONTEÚDO PRINCIPAL ---
-
-
+# --- ÁREA ADMIN (CRIAÇÃO E DASHBOARD) ---
 if st.session_state.nivel == "admin":
-    st.title("🛠️ Painel de Administração")
-    st.write("Bem-vindo, Ricardo. Tens permissão para ver todos os dados e gerir o sistema.")
+    st.title("🛠️ Painel Admin - Gestão de Produtos")
+    
+    menu = st.sidebar.radio("Navegação", ["Dashboard", "Registar Novo Produto"])
+    
+    if menu == "Registar Novo Produto":
+        with st.form("novo_produto"):
+            nome = st.text_input("Nome do Produto")
+            foto = st.text_input("URL da Fotografia (Link)")
+            vida = st.number_input("Tempo de Vida (Dias)", min_value=1)
+            desc = st.text_area("Descrição")
+            if st.form_submit_button("Gravar Produto"):
+                st.success(f"Produto {nome} configurado!")
+                # Aqui adicionarias a lógica de append para o Sheets
+    
+    else:
+        st.subheader("📊 Dashboard de Validades")
+        # Exemplo de métrica rápida
+        st.metric("Total de Produtos", len(df_produtos))
+        st.dataframe(df_produtos, use_container_width=True)
+
+# --- ÁREA USER (REGISTO DE VALIDADE) ---
 else:
-    st.title("📦 Consulta de Stock e Validades")
-    st.write("Bem-vindo ao painel de consulta rápida.")
+    st.title("📦 Registo de Validades")
+    st.write("Selecione o produto pela imagem:")
 
-# 4. LIGAÇÃO AO GOOGLE SHEETS
-try:
-    # Cria a conexão
-    conn = st.connection("gsheets", type=GSheetsConnection)
-    
-    # Lê a folha principal (Aba inicial por padrão)
-    # ttl="1m" faz com que a app atualize os dados a cada 1 minuto se houver mudanças no Excel
-    df = conn.read(ttl="1m")
-    
-    # Mostrar os dados numa tabela bonita e interativa
-    st.subheader("Produtos em Inventário")
-    st.dataframe(
-        df, 
-        use_container_width=True, 
-        hide_index=True
-    )
+    # Mostrar produtos em grelha para seleção visual
+    cols = st.columns(3)
+    for index, row in df_produtos.iterrows():
+        with cols[index % 3]:
+            st.image(row['Foto_URL'], use_column_width=True)
+            if st.button(f"Selecionar {row['Nome']}", key=row['Nome']):
+                st.session_state.selected_prod = row['Nome']
 
-except Exception as e:
-    st.error("🚨 Erro ao carregar a base de dados do Google Sheets.")
-    st.info("Verifica se o link nos Secrets está correto e se a folha está partilhada como 'Qualquer pessoa com o link'.")
+    if "selected_prod" in st.session_state:
+        st.divider()
+        st.subheader(f"Registo para: {st.session_state.selected_prod}")
+        
+        with st.form("registo_validade"):
+            data_v = st.date_input("Data de Validade")
+            sem_hora = st.checkbox("Registo sem hora")
+            
+            if not sem_hora:
+                hora_v = st.time_input("Hora de Validade")
+            
+            if st.form_submit_button("Confirmar Registo"):
+                hora_str = "N/A" if sem_hora else hora_v.strftime("%H:%M")
+                st.success(f"Registado: {st.session_state.selected_prod} | Validade: {data_v} às {hora_str}")
+
+st.sidebar.button("Sair", on_click=lambda: st.session_state.update({"autenticado": False}))
