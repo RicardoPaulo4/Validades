@@ -1,24 +1,27 @@
 import streamlit as st
 
-# Tenta limpar qualquer lixo de sessão anterior
-if 'auth_status' not in st.session_state:
-    st.session_state.auth_status = None
+# 1. VERIFICAÇÃO INICIAL
+st.set_page_config(page_title="Validador", centered=True)
 
-st.title("Teste de Autenticação")
-
-# Verifica o estado real do utilizador
-user = st.user
-
-if not user.get("is_logged_in"):
-    st.warning("Estado: Não Logado")
-    if st.button("Efetuar Login"):
+if not st.user.get("is_logged_in"):
+    # --- TUDO O QUE APARECE ANTES DO LOGIN ---
+    st.title("🔒 Portaria do Sistema")
+    st.info("Aguardando autenticação Google...")
+    
+    if st.button("Clicar para Entrar"):
         st.login("google")
+    
+    # O código MORRE aqui para quem não está logado
     st.stop()
 
-# Se ele conseguir passar do stop, o login funcionou!
+# --- 2. TUDO O QUE APARECE DEPOIS DO LOGIN ---
+# Se o código chegar aqui, é porque o login FUNCIONOU.
 st.balloons()
-st.success(f"Sucesso! Bem-vindo {user.name}")
-st.write(f"O seu email é: {user.email}")
+st.title("✅ ÁREA RESTRITA ACEDIDA")
+st.success(f"Bem-vindo, {st.user.name}!")
 
-if st.button("Sair"):
+with st.expander("Ver teus dados de perfil"):
+    st.write(st.user)
+
+if st.button("Terminar Sessão"):
     st.logout()
