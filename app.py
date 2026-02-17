@@ -1,47 +1,78 @@
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 
-# 1. DEFINE QUEM É O ADMIN (Coloca o teu email aqui)
-ADMIN_EMAIL = "ricardo.maio.paulo@gmail.com" 
-
 st.set_page_config(page_title="Gestão de Validades", layout="wide")
 
-# 2. LOGIN
-if not st.user.get("is_logged_in"):
-    st.title("🔐 Sistema de Validades")
-    if st.button("Entrar com Google"):
-        st.login("google")
-    st.stop()
+# --- SISTEMA DE AUTENTICAÇÃO INTERNO ---
+def login():
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+        st.session_state.user_level = None
+        st.session_state.user_name = None
 
-# 3. VERIFICAÇÃO DE PERFIL
-is_admin = (st.user.email == ADMIN_EMAIL)
+    if st.session_state.authenticated:
+        return True
 
-# 4. MENU LATERAL DIFERENCIADO
-st.sidebar.image(st.user.picture, width=50)
-st.sidebar.write(f"Olá, {st.user.name}")
+    st.title("🔐 Acesso ao Sistema")
+    user_input = st.text_input("Utilizador")
+    pass_input = st.text_input("Palavra-passe", type="password")
 
-if is_admin:
-    st.sidebar.info("⭐ Perfil: Administrador")
-    menu = st.sidebar.radio("Ir para:", ["Ver Validades", "Painel Admin (Editar)"])
-else:
-    st.sidebar.warning("👤 Perfil: Utilizador")
-    menu = "Ver Validades"
-
-if st.sidebar.button("Sair"):
-    st.logout()
-
-# 5. LÓGICA DAS PÁGINAS
-if menu == "Painel Admin (Editar)":
-    st.title("🛠️ Área de Administração")
-    st.write("Aqui podes adicionar novos produtos ou apagar registos.")
-    # Exemplo: Link direto para o Google Sheets para editar
-    st.link_button("Abrir Planilha Original", "https://docs.google.com/spreadsheets/d/1hrDjwIXP3Bffyt27v6LM_MYxQBAAfhPsOy4u6C4qOFc/edit")
+    if st.button("Entrar"):
+        try:
+            # Liga ao Sheets para validar quem entra
+            conn = st.connection("gsheets", type=GSheetsConnection)
+            df_users = conn.read(worksheet="Utilizadores") # Nome da aba criada
+            
+            # Procura o utilizador na tabela
+            match = df_users[(df_users['utilizador'] == user_input) & (df_users['senha'].astype(str) == pass_input)]
+            
+            if not match.empty:
+                st.session_state.authenticated = True
+                st.session_state.user_level = match.iloc[0]['nivel']
+                st.session_state.user_name = user_input
+                st.rerun()
+            else:
+                st.error("❌ Utilizador ou senha incorretos")
+        except Exception as e:
+            st.error("Erro ao carregar base de utilizadores. Verifique se a aba 'Utilizadores' existe.")
     
-else:
-    st.title("📦 Consulta de Stock")
-    try:
+    return False
+
+# --- EXECUÇÃO DA APP ---
+if login():
+    # BARRA LATERAL DIFERENCIADA
+    st.sidebar.write(f"Bem-vindo, **{st.session_state.user_name}**")
+    st.sidebar.write(f"Nível: `{st.session_state.user_level}`")
+    
+    if st.sidebar.button("Sair"):
+        st.session_state.authenticated = False
+        st.rerun()
+
+    # --- LÓGICA DE ACESSO ---
+    if st.session_state.user_level == "admin":
+        st.title("🛠️ Painel de Administração")
+        st.success("Tens acesso total ao sistema.")
+        
+        # O Admin vê tudo e pode ter funções extra
+        menu = st.tabs(["📊 Ver Dados", "➕ Gestão (Admin)"])
+        
+        with menu[0]:
+            conn = st.connection("gsheets", type=GSheetsConnection)
+            df = conn.read()
+            st.dataframe(df, use_container_width=True)
+            
+        with menu[1]:
+            st.subheader("Configurações de Administrador")
+            st.write("Aqui podes ver a lista de utilizadores:")
+            df_users_view = conn.read(worksheet="Utilizadores")
+            st.table(df_users_view)
+
+    else:
+        # VISÃO DO UTILIZADOR COMUM (USER)
+        st.title("📦 Consulta de Validades")
+        st.info("Acesso de consulta rápida.")
+        
         conn = st.connection("gsheets", type=GSheetsConnection)
-        df = conn.read(ttl="1m")
+        df = conn.read()
+        # O User talvez só veja a tabela, sem permissão para apagar nada
         st.dataframe(df, use_container_width=True)
-    except Exception as e:
-        st.error(f"Erro ao ler dados: {e}")
