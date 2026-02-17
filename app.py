@@ -1,65 +1,82 @@
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
-import pandas as pd
 
-st.set_page_config(page_title="Gestão de Validades", layout="wide")
+# 1. CONFIGURAÇÃO DA PÁGINA
+st.set_page_config(page_title="Controlo de Validades", layout="wide", page_icon="📦")
 
-# Inicialização da sessão
+# 2. BASE DE DADOS DE UTILIZADORES (Configuração solicitada)
+# Podes alterar as senhas aqui sempre que quiseres
+utilizadores = {
+    "ricardo": {"senha": "123", "nivel": "admin"},
+    "miguel": {"senha": "111", "nivel": "user"},
+    "brites": {"senha": "222", "nivel": "user"},
+    "toni": {"senha": "333", "nivel": "user"}
+}
+
+# 3. INICIALIZAÇÃO DO ESTADO DE SESSÃO
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
-    st.session_state.perfil = None
+    st.session_state.user = None
+    st.session_state.nivel = None
 
 # --- ECRÃ DE LOGIN ---
 if not st.session_state.autenticado:
-    st.title("🔐 Login - Sistema de Validades")
+    st.title("🔐 Sistema de Gestão de Validades")
     
-    with st.form("login_form"):
-        u_input = st.text_input("Utilizador").strip().lower()
-        p_input = st.text_input("Palavra-passe", type="password").strip()
-        submit = st.form_submit_button("Entrar")
-        
-        if submit:
-            try:
-                conn = st.connection("gsheets", type=GSheetsConnection)
-                # Lendo a aba exatamente como está na imagem: "Utilizadores"
-                df_u = conn.read(worksheet="Utilizadores", ttl=0)
-                
-                # Limpeza técnica para garantir que a comparação funciona
-                df_u['utilizador'] = df_u['utilizador'].astype(str).str.strip().str.lower()
-                df_u['senha'] = df_u['senha'].astype(str).str.strip()
-
-                # Procura o utilizador na tabela
-                user_match = df_u[(df_u['utilizador'] == u_input) & (df_u['senha'] == p_input)]
-                
-                if not user_match.empty:
+    # Centralizar o formulário de login
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        with st.form("login_form"):
+            st.subheader("Acesso de Colaborador")
+            u_input = st.text_input("Utilizador").strip().lower()
+            p_input = st.text_input("Palavra-passe", type="password").strip()
+            submit = st.form_submit_button("Entrar")
+            
+            if submit:
+                if u_input in utilizadores and utilizadores[u_input]["senha"] == p_input:
                     st.session_state.autenticado = True
-                    # Acedendo à coluna 'nível' com acento conforme a tua imagem
-                    st.session_state.perfil = user_match.iloc[0]['nível'].strip().lower()
+                    st.session_state.user = u_input
+                    st.session_state.nivel = utilizadores[u_input]["nivel"]
                     st.rerun()
                 else:
                     st.error("❌ Utilizador ou senha incorretos.")
-            except Exception as e:
-                st.error("🚨 Erro de Ligação ao Sheets!")
-                st.info("Verifica se o link nos Secrets termina em /edit e se a aba chama-se 'Utilizadores'.")
     st.stop()
 
-# --- ÁREA PÓS-LOGIN ---
-st.sidebar.success(f"Perfil: {st.session_state.perfil.upper()}")
-if st.sidebar.button("Sair"):
+# --- BARRA LATERAL (SIDEBAR) ---
+st.sidebar.title(f"👤 Olá, {st.session_state.user.capitalize()}!")
+st.sidebar.info(f"Nível de Acesso: {st.session_state.nivel.upper()}")
+
+if st.sidebar.button("Terminar Sessão"):
     st.session_state.autenticado = False
     st.rerun()
 
-# Diferenciação por nível
-if st.session_state.perfil == "admin":
-    st.title("🛠️ Painel de Administração")
-    st.info("Bem-vindo, Ricardo. Tens permissão total.")
-else:
-    st.title("📦 Consulta de Stock")
+# --- CONTEÚDO PRINCIPAL ---
 
-# Carregar a tabela de produtos (aba 'produtos' na tua imagem)
+
+if st.session_state.nivel == "admin":
+    st.title("🛠️ Painel de Administração")
+    st.write("Bem-vindo, Ricardo. Tens permissão para ver todos os dados e gerir o sistema.")
+else:
+    st.title("📦 Consulta de Stock e Validades")
+    st.write("Bem-vindo ao painel de consulta rápida.")
+
+# 4. LIGAÇÃO AO GOOGLE SHEETS
 try:
+    # Cria a conexão
     conn = st.connection("gsheets", type=GSheetsConnection)
-    df_prod = conn.read(worksheet="produtos", ttl="1m")
-    st.dataframe(df_prod, use_container_width=True)
+    
+    # Lê a folha principal (Aba inicial por padrão)
+    # ttl="1m" faz com que a app atualize os dados a cada 1 minuto se houver mudanças no Excel
+    df = conn.read(ttl="1m")
+    
+    # Mostrar os dados numa tabela bonita e interativa
+    st.subheader("Produtos em Inventário")
+    st.dataframe(
+        df, 
+        use_container_width=True, 
+        hide_index=True
+    )
+
 except Exception as e:
-    st.warning("⚠️ Não foi possível carregar a aba 'produtos'. Verifique o nome da aba.")
+    st.error("🚨 Erro ao carregar a base de dados do Google Sheets.")
+    st.info("Verifica se o link nos Secrets está correto e se a folha está partilhada como 'Qualquer pessoa com o link'.")
