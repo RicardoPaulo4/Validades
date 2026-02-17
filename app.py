@@ -1,46 +1,19 @@
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
 
-# 1. Configurações Iniciais do Layout
-st.set_page_config(page_title="Controlo de Validades", layout="wide")
+# 1. Configuração inicial
+st.set_page_config(page_title="Gestão de Validades", layout="wide")
 
-# 2. SISTEMA DE LOGIN (A "Portaria")
-if not st.user.get("is_logged_in"):
-    st.title("🔐 Acesso Restrito")
-    st.info("Bem-vindo! Por favor, identifique-se com a sua conta Google para aceder ao inventário.")
-    
+# 2. Forçar a verificação de sessão
+if "user_info" not in st.session_state:
+    st.session_state.user_info = st.user
+
+# Se NÃO está logado ou a sessão está vazia
+if not st.session_state.user_info.get("is_logged_in"):
+    st.title("🔐 Acesso ao Sistema")
+    st.warning("Aguardando autenticação...")
     if st.button("Entrar com Google"):
         st.login("google")
-    
-    # Bloqueia a execução aqui até que o login seja feito
     st.stop()
 
-# 3. CONTEÚDO DA APP ORIGINAL (A "Área Privada")
-# ------------------------------------------------------------------
-
-# Barra lateral com informações do utilizador e botão de saída
-st.sidebar.image(st.user.picture, width=100)
-st.sidebar.write(f"Olá, **{st.user.name}**!")
-if st.sidebar.button("Terminar Sessão"):
-    st.logout()
-
-st.title("📦 Gestão de Inventário e Validades")
-
-# Ligação ao Google Sheets
-try:
-    conn = st.connection("gsheets", type=GSheetsConnection)
-    
-    # Aqui recuperamos os dados da sua folha de cálculo
-    df = conn.read(ttl="1m") 
-
-    # --- ZONA DA SUA APP ANTERIOR ---
-    # Aqui pode adicionar novamente os seus filtros, gráficos e tabelas
-    st.subheader("Visualização de Stock")
-    st.dataframe(df, use_container_width=True)
-    
-    # Exemplo: Se tiver uma coluna chamada 'Produto' e 'Data'
-    # st.line_chart(df.set_index('Produto')) 
-
-except Exception as e:
-    st.error(f"Erro ao carregar os dados do Google Sheets: {e}")
-    st.info("Dica: Confirme se o URL da folha nos 'Secrets' está correto.")
+# --- SE PASSOU DAQUI, O LOGIN É REAL ---
+st.success(f"Bem-vindo, {st.session_state.user_info.name}!")
