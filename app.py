@@ -1,26 +1,43 @@
 import streamlit as st
+from streamlit_gsheets import GSheetsConnection
+import pandas as pd
 
-# Configuração correta: o layout deve ser "centered" ou "wide"
-st.set_page_config(page_title="Validador", layout="centered")
+# 1. Configuração da Página
+st.set_page_config(page_title="Gestão de Validades", layout="wide")
 
-# 1. VERIFICAÇÃO DE LOGIN
+# 2. Portaria (Login)
 if not st.user.get("is_logged_in"):
-    st.title("🔐 Portaria do Sistema")
-    st.info("Aguardando autenticação Google...")
-    
-    if st.button("Clicar para Entrar"):
+    st.title("🔐 Sistema de Controlo de Validades")
+    st.info("Identifique-se com a sua conta Google para aceder ao inventário.")
+    if st.button("Entrar com Google"):
         st.login("google")
-    
-    st.stop()
+    st.stop() # Bloqueia tudo o que está abaixo se não houver login
 
-# 2. CONTEÚDO PÓS-LOGIN (Só aparece se o login funcionar)
-st.balloons()
-st.title("✅ Acesso Concedido!")
-st.success(f"Bem-vindo, {st.user.name}!")
-
-st.write("---")
-st.subheader("Conteúdo Protegido")
-st.write("Se estás a ver isto, o sistema de login está 100% funcional.")
-
-if st.sidebar.button("Terminar Sessão"):
+# 3. Restante App (Onde estavam as tuas validades)
+# ------------------------------------------------------------------
+st.sidebar.success(f"Utilizador: {st.user.email}")
+if st.sidebar.button("Sair"):
     st.logout()
+
+st.title("📦 Inventário e Controlo de Validades")
+
+# Ligação ao Google Sheets (Usando os teus Secrets configurados)
+try:
+    conn = st.connection("gsheets", type=GSheetsConnection)
+    
+    # Lê os dados da folha principal
+    # (Podes mudar o nome da folha ou o TTL conforme precisares)
+    df = conn.read(ttl="1m") 
+
+    # --- Aqui podes adicionar os filtros ou gráficos que tinhas antes ---
+    
+    st.subheader("Lista de Produtos")
+    st.dataframe(df, use_container_width=True)
+
+    # Exemplo de um alerta visual simples
+    if "Validade" in df.columns:
+        st.info("Dica: Use os filtros laterais para gerir os prazos.")
+
+except Exception as e:
+    st.error(f"Erro ao carregar os dados do Google Sheets: {e}")
+    st.info("Verifique se o URL da folha nos Secrets está correto.")
