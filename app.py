@@ -1,43 +1,46 @@
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
-import pandas as pd
 
-# 1. Configuração da Página
-st.set_page_config(page_title="Gestão de Validades", layout="wide")
+# 1. Configurações Iniciais do Layout
+st.set_page_config(page_title="Controlo de Validades", layout="wide")
 
-# 2. Portaria (Login)
+# 2. SISTEMA DE LOGIN (A "Portaria")
 if not st.user.get("is_logged_in"):
-    st.title("🔐 Sistema de Controlo de Validades")
-    st.info("Identifique-se com a sua conta Google para aceder ao inventário.")
+    st.title("🔐 Acesso Restrito")
+    st.info("Bem-vindo! Por favor, identifique-se com a sua conta Google para aceder ao inventário.")
+    
     if st.button("Entrar com Google"):
         st.login("google")
-    st.stop() # Bloqueia tudo o que está abaixo se não houver login
+    
+    # Bloqueia a execução aqui até que o login seja feito
+    st.stop()
 
-# 3. Restante App (Onde estavam as tuas validades)
+# 3. CONTEÚDO DA APP ORIGINAL (A "Área Privada")
 # ------------------------------------------------------------------
-st.sidebar.success(f"Utilizador: {st.user.email}")
-if st.sidebar.button("Sair"):
+
+# Barra lateral com informações do utilizador e botão de saída
+st.sidebar.image(st.user.picture, width=100)
+st.sidebar.write(f"Olá, **{st.user.name}**!")
+if st.sidebar.button("Terminar Sessão"):
     st.logout()
 
-st.title("📦 Inventário e Controlo de Validades")
+st.title("📦 Gestão de Inventário e Validades")
 
-# Ligação ao Google Sheets (Usando os teus Secrets configurados)
+# Ligação ao Google Sheets
 try:
     conn = st.connection("gsheets", type=GSheetsConnection)
     
-    # Lê os dados da folha principal
-    # (Podes mudar o nome da folha ou o TTL conforme precisares)
+    # Aqui recuperamos os dados da sua folha de cálculo
     df = conn.read(ttl="1m") 
 
-    # --- Aqui podes adicionar os filtros ou gráficos que tinhas antes ---
-    
-    st.subheader("Lista de Produtos")
+    # --- ZONA DA SUA APP ANTERIOR ---
+    # Aqui pode adicionar novamente os seus filtros, gráficos e tabelas
+    st.subheader("Visualização de Stock")
     st.dataframe(df, use_container_width=True)
-
-    # Exemplo de um alerta visual simples
-    if "Validade" in df.columns:
-        st.info("Dica: Use os filtros laterais para gerir os prazos.")
+    
+    # Exemplo: Se tiver uma coluna chamada 'Produto' e 'Data'
+    # st.line_chart(df.set_index('Produto')) 
 
 except Exception as e:
     st.error(f"Erro ao carregar os dados do Google Sheets: {e}")
-    st.info("Verifique se o URL da folha nos Secrets está correto.")
+    st.info("Dica: Confirme se o URL da folha nos 'Secrets' está correto.")
