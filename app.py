@@ -3,9 +3,10 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from datetime import datetime
 
-# 1. CONFIGURAÇÃO E LOGIN
-st.set_page_config(page_title="Gestão de Validades", layout="wide")
+# 1. CONFIGURAÇÃO DA PÁGINA
+st.set_page_config(page_title="Registo de Validades", layout="wide")
 
+# 2. UTILIZADORES (ADMIN: Ricardo | USERS: Miguel, Brites, Toni)
 utilizadores = {
     "ricardo": {"senha": "123", "nivel": "admin"},
     "miguel": {"senha": "111", "nivel": "user"},
@@ -15,10 +16,8 @@ utilizadores = {
 
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
-    st.session_state.user = None
-    st.session_state.nivel = None
 
-# (Lógica de Login simplificada para poupar espaço, igual ao código anterior)
+# --- LÓGICA DE LOGIN ---
 if not st.session_state.autenticado:
     st.title("🔐 Login")
     u = st.text_input("Utilizador").lower().strip()
@@ -31,58 +30,66 @@ if not st.session_state.autenticado:
             st.rerun()
     st.stop()
 
-# --- CONEXÃO AO SHEETS ---
+# --- CONEXÃO AO GOOGLE SHEETS ---
 conn = st.connection("gsheets", type=GSheetsConnection)
-df_produtos = conn.read(worksheet="produtos") # Aba com: Nome, Foto_URL, Vida_Util
 
-# --- ÁREA ADMIN (CRIAÇÃO E DASHBOARD) ---
+# --- ÁREA ADMIN (DASHBOARD) ---
 if st.session_state.nivel == "admin":
-    st.title("🛠️ Painel Admin - Gestão de Produtos")
-    
-    menu = st.sidebar.radio("Navegação", ["Dashboard", "Registar Novo Produto"])
-    
-    if menu == "Registar Novo Produto":
-        with st.form("novo_produto"):
-            nome = st.text_input("Nome do Produto")
-            foto = st.text_input("URL da Fotografia (Link)")
-            vida = st.number_input("Tempo de Vida (Dias)", min_value=1)
-            desc = st.text_area("Descrição")
-            if st.form_submit_button("Gravar Produto"):
-                st.success(f"Produto {nome} configurado!")
-                # Aqui adicionarias a lógica de append para o Sheets
-    
-    else:
-        st.subheader("📊 Dashboard de Validades")
-        # Exemplo de métrica rápida
-        st.metric("Total de Produtos", len(df_produtos))
-        st.dataframe(df_produtos, use_container_width=True)
+    st.title("🛠️ Painel Admin - Ricardo")
+    st.subheader("Registos Efetuados")
+    try:
+        df_registos = conn.read(worksheet="registos", ttl=0)
+        st.dataframe(df_registos, use_container_width=True)
+    except:
+        st.warning("A aba 'registos' ainda está vazia ou não foi criada.")
 
-# --- ÁREA USER (REGISTO DE VALIDADE) ---
+# --- ÁREA USER (SELEÇÃO POR IMAGEM) ---
 else:
-    st.title("📦 Registo de Validades")
-    st.write("Selecione o produto pela imagem:")
-
-    # Mostrar produtos em grelha para seleção visual
-    cols = st.columns(3)
-    for index, row in df_produtos.iterrows():
-        with cols[index % 3]:
-            st.image(row['Foto_URL'], use_column_width=True)
-            if st.button(f"Selecionar {row['Nome']}", key=row['Nome']):
-                st.session_state.selected_prod = row['Nome']
-
-    if "selected_prod" in st.session_state:
-        st.divider()
-        st.subheader(f"Registo para: {st.session_state.selected_prod}")
+    st.title("📦 Selecione o Produto")
+    
+    try:
+        # Lê a lista de produtos que criaste no Sheets
+        df_produtos = conn.read(worksheet="produtos", ttl=0)
         
-        with st.form("registo_validade"):
-            data_v = st.date_input("Data de Validade")
-            sem_hora = st.checkbox("Registo sem hora")
+        # Cria colunas para mostrar as imagens lado a lado
+        cols = st.columns(3) 
+        
+        for index, row in df_produtos.iterrows():
+            with cols[index % 3]:
+                # EXIBE A IMAGEM REAL (não o link)
+                st.image(row['Foto_URL'], use_container_width=True)
+                
+                # BOTÃO DE SELEÇÃO POR BAIXO DA IMAGEM
+                if st.button(f"Registar {row['Nome']}", key=f"btn_{index}"):
+                    st.session_state.produto_escolhido = row['Nome']
+        
+        # FORMULÁRIO QUE APARECE APÓS CLICAR NA IMAGEM
+        if "produto_escolhido" in st.session_state:
+            st.divider()
+            st.subheader(f"Registo para: {st.session_state.produto_escolhido}")
             
-            if not sem_hora:
-                hora_v = st.time_input("Hora de Validade")
-            
-            if st.form_submit_button("Confirmar Registo"):
-                hora_str = "N/A" if sem_hora else hora_v.strftime("%H:%M")
-                st.success(f"Registado: {st.session_state.selected_prod} | Validade: {data_v} às {hora_str}")
+            with st.form("form_validade"):
+                data_v = st.date_input("Data de Validade")
+                sem_hora = st.checkbox("Registo sem hora")
+                hora_v = st.time_input("Hora") if not sem_hora else "N/A"
+                
+                if st.form_submit_button("Confirmar Registo"):
+                    # Aqui a app grava no Sheets (Aba registos)
+                    novo_reg = pd.DataFrame([{
+                        "Produto": st.session_state.produto_escolhido,
+                        "Data_Validade": str(data_v),
+                        "Hora": str(hora_v),
+                        "Utilizador": st.session_state.user,
+                        "Data_Registo": datetime.now().strftime("%d/%m/%Y %H:%M")
+                    }])
+                    conn.create(worksheet="registos", data=novo_reg)
+                    st.success(f"✅ Feito! {st.session_state.produto_escolhido} guardado.")
+                    del st.session_state.produto_escolhido # Limpa seleção para o próximo
 
-st.sidebar.button("Sair", on_click=lambda: st.session_state.update({"autenticado": False}))
+    except Exception as e:
+        st.error("Erro: Garante que a aba 'produtos' existe e tem as colunas 'Nome' e 'Foto_URL'.")
+
+# SAIR
+if st.sidebar.button("Sair"):
+    st.session_state.autenticado = False
+    st.rerun()
