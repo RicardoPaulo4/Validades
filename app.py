@@ -1,27 +1,26 @@
 import streamlit as st
 
-# 1. VERIFICAÇÃO INICIAL
-st.set_page_config(page_title="Validador", centered=True)
+# Configuração correta: o layout deve ser "centered" ou "wide"
+st.set_page_config(page_title="Validador", layout="centered")
 
+# 1. VERIFICAÇÃO DE LOGIN
 if not st.user.get("is_logged_in"):
-    # --- TUDO O QUE APARECE ANTES DO LOGIN ---
-    st.title("🔒 Portaria do Sistema")
+    st.title("🔐 Portaria do Sistema")
     st.info("Aguardando autenticação Google...")
     
     if st.button("Clicar para Entrar"):
         st.login("google")
     
-    # O código MORRE aqui para quem não está logado
     st.stop()
 
-# --- 2. TUDO O QUE APARECE DEPOIS DO LOGIN ---
-# Se o código chegar aqui, é porque o login FUNCIONOU.
+# 2. CONTEÚDO PÓS-LOGIN (Só aparece se o login funcionar)
 st.balloons()
-st.title("✅ ÁREA RESTRITA ACEDIDA")
+st.title("✅ Acesso Concedido!")
 st.success(f"Bem-vindo, {st.user.name}!")
 
-with st.expander("Ver teus dados de perfil"):
-    st.write(st.user)
+st.write("---")
+st.subheader("Conteúdo Protegido")
+st.write("Se estás a ver isto, o sistema de login está 100% funcional.")
 
-if st.button("Terminar Sessão"):
+if st.sidebar.button("Terminar Sessão"):
     st.logout()
