@@ -1,66 +1,60 @@
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 
-st.set_page_config(page_title="Controlo de Validades", layout="wide")
+st.set_page_config(page_title="Gestão de Validades", layout="wide")
 
-# Inicialização da sessão
-if "autenticado" not in st.session_state:
-    st.session_state.autenticado = False
-    st.session_state.user = None
-    st.session_state.nivel = None
+if "auth_status" not in st.session_state:
+    st.session_state.auth_status = False
+    st.session_state.user_role = None
 
-# --- ECRÃ DE LOGIN ---
-if not st.session_state.autenticado:
-    st.title("🔐 Acesso ao Sistema")
-    
+if not st.session_state.auth_status:
+    st.title("🔐 Login")
     with st.form("login_form"):
-        u = st.text_input("Utilizador").strip()
+        u = st.text_input("Utilizador").strip().lower()
         p = st.text_input("Palavra-passe", type="password").strip()
-        btn = st.form_submit_button("Entrar")
+        submit = st.form_submit_button("Entrar")
         
-        if btn:
+        if submit:
             try:
                 conn = st.connection("gsheets", type=GSheetsConnection)
-                # Tentamos ler a aba de utilizadores
+                # Lendo a aba com o nome exato: Utilizadores
                 df_u = conn.read(worksheet="Utilizadores", ttl=0)
                 
-                # Validação
-                match = df_u[(df_u['utilizador'].astype(str) == u) & (df_u['senha'].astype(str) == p)]
+                # Ajustando para ler a coluna 'nível' com acento conforme a tua folha
+                # E limpando espaços extras nos dados da folha
+                df_u['utilizador'] = df_u['utilizador'].astype(str).str.strip().str.lower()
+                df_u['senha'] = df_u['senha'].astype(str).str.strip()
+
+                match = df_u[(df_u['utilizador'] == u) & (df_u['senha'] == p)]
                 
                 if not match.empty:
-                    st.session_state.autenticado = True
-                    st.session_state.user = u
-                    st.session_state.nivel = match.iloc[0]['nivel']
+                    st.session_state.auth_status = True
+                    # Acedendo à coluna 'nível' com acento
+                    st.session_state.user_role = match.iloc[0]['nível']
                     st.rerun()
                 else:
-                    st.error("❌ Utilizador ou senha incorretos.")
+                    st.error("Credenciais inválidas")
             except Exception as e:
-                st.error("🚨 Erro: Não foi possível encontrar a aba 'Utilizadores'.")
-                st.info("Garanta que o nome da aba no Excel é exatamente 'Utilizadores'.")
+                st.error(f"Erro: Verifica se a aba 'Utilizadores' está acessível. Detalhe: {e}")
     st.stop()
 
 # --- ÁREA PÓS-LOGIN ---
-st.sidebar.title(f"Olá, {st.session_state.user}!")
-st.sidebar.write(f"Acesso: **{st.session_state.nivel}**")
-
+st.sidebar.write(f"Perfil: {st.session_state.user_role}")
 if st.sidebar.button("Sair"):
-    st.session_state.autenticado = False
+    st.session_state.auth_status = False
     st.rerun()
 
-# Conteúdo baseado no nível
-if st.session_state.nivel == "admin":
-    st.title("🛠️ Painel de Administração")
-    st.write("Acesso total libertado.")
-    # Aqui podes colocar funções de edição
+if st.session_state.user_role == "admin":
+    st.title("🛠️ Painel Admin")
+    st.write("Bem-vindo, Ricardo!")
 else:
-    st.title("📦 Consulta de Validades")
-    st.write("Acesso de consulta para colaboradores.")
+    st.title("📦 Consulta de Stock")
+    st.write("Olá!")
 
-# Mostrar a tabela principal (Aba 1)
+# Carregar os produtos (que estão noutra parte da folha)
 try:
     conn = st.connection("gsheets", type=GSheetsConnection)
-    df = conn.read(ttl="1m") # Lê a primeira aba por padrão
-    st.subheader("Lista de Artigos")
-    st.dataframe(df, use_container_width=True)
-except Exception as e:
-    st.error(f"Erro ao carregar dados da planilha: {e}")
+    df_prod = conn.read(worksheet="produtos") # Nome da aba na tua folha 
+    st.dataframe(df_prod)
+except:
+    st.warning("Ainda não existem produtos registados.")
