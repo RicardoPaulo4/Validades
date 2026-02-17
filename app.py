@@ -1,25 +1,26 @@
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
 
-# 1. Verificação de Autenticação
+# 1. Lista de emails que podem aceder à app
+UTILIZADORES_AUTORIZADOS = [
+    "teu-email@gmail.com",
+    "gerente@empresa.com",
+    "funcionario1@gmail.com"
+]
+
 if not st.user.get("is_logged_in"):
-    st.title("🔐 Gestão de Validades")
-    st.info("Bem-vindo! Por favor, utilize a sua conta Google para aceder ao sistema.")
+    st.title("🔐 Acesso Restrito")
     if st.button("Entrar com Google"):
-        st.login("google")# O Streamlit vai buscar as chaves [auth.google] automaticamente
+        st.login("google")
     st.stop()
 
-# 2. Se logado, mostra a App
-st.sidebar.write(f"Utilizador: **{st.user.email}**")
-if st.sidebar.button("Sair"):
-    st.logout()
+# 2. VALIDAÇÃO: O email está na lista?
+user_email = st.user.email
 
-st.title("📦 Sistema de Controlo de Validades")
+if user_email not in UTILIZADORES_AUTORIZADOS:
+    st.error(f"O utilizador {user_email} não tem permissão para aceder a este sistema.")
+    if st.button("Sair"):
+        st.logout()
+    st.stop()
 
-# 3. Ligação à Base de Dados (Google Sheets)
-try:
-    conn = st.connection("gsheets", type=GSheetsConnection)
-    df = conn.read(ttl="1m") # Lê os dados (atualiza a cada 1 minuto)
-    st.dataframe(df)
-except Exception as e:
-    st.error(f"Erro ao ligar ao Google Sheets: {e}")
+# 3. Se passar a validação, a app continua aqui
+st.success(f"Bem-vindo, {st.user.name}!")
