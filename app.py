@@ -1,26 +1,41 @@
 import streamlit as st
+from streamlit_gsheets import GSheetsConnection
 
-# 1. Lista de emails que podem aceder à app
-UTILIZADORES_AUTORIZADOS = [
-    "teu-email@gmail.com",
-    "gerente@empresa.com",
-    "funcionario1@gmail.com"
-]
+# Configuração da página (deve ser a primeira coisa)
+st.set_page_config(page_title="Gestão de Validades", layout="wide")
 
-if not st.user.get("is_logged_in"):
-    st.title("🔐 Acesso Restrito")
-    if st.button("Entrar com Google"):
-        st.login("google")
-    st.stop()
+# 1. FUNÇÃO DE LOGIN
+def check_auth():
+    if not st.user.get("is_logged_in"):
+        # Se não está logado, mostra APENAS a página de entrada
+        st.title("🔐 Sistema de Validades")
+        st.info("Por favor, faça login para aceder aos dados.")
+        
+        if st.button("Entrar com Google"):
+            st.login("google")
+        
+        # O st.stop() aqui é crucial para não carregar o resto da app
+        st.stop()
 
-# 2. VALIDAÇÃO: O email está na lista?
-user_email = st.user.email
+# Executa a verificação
+check_auth()
 
-if user_email not in UTILIZADORES_AUTORIZADOS:
-    st.error(f"O utilizador {user_email} não tem permissão para aceder a este sistema.")
-    if st.button("Sair"):
-        st.logout()
-    st.stop()
+# 2. SE CHEGOU AQUI, É PORQUE ESTÁ LOGADO
+# ---------------------------------------------------------
+st.sidebar.success(f"Logado como: {st.user.email}")
+if st.sidebar.button("Sair"):
+    st.logout()
 
-# 3. Se passar a validação, a app continua aqui
-st.success(f"Bem-vindo, {st.user.name}!")
+st.title("📦 Painel de Controlo de Validades")
+
+# 3. CARREGAR DADOS DO GOOGLE SHEETS
+try:
+    conn = st.connection("gsheets", type=GSheetsConnection)
+    # Substitua 'Folha1' pelo nome exato da sua aba no Excel
+    df = conn.read(ttl="1m") 
+    
+    st.write("### Inventário Próximo do Vencimento")
+    st.dataframe(df, use_container_width=True)
+    
+except Exception as e:
+    st.error(f"Erro ao carregar Sheets: {e}")
