@@ -3,123 +3,107 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from datetime import datetime
 
-# 1. CONFIGURAÇÃO DA PÁGINA
-st.set_page_config(page_title="ValidaControl - Smart Expiry", layout="centered", page_icon="🔐")
+# CONFIGURAÇÃO DE INTERFACE
+st.set_page_config(page_title="ValidaControl", layout="centered", initial_sidebar_state="collapsed")
 
-# --- ESTILO CSS PARA DESIGN PROFISSIONAL ---
+# REPLICAÇÃO DO DESIGN (CSS)
 st.markdown("""
     <style>
-    /* Esconder elementos padrão do Streamlit */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    
-    /* Fundo da página */
-    .stApp {
-        background-color: #F8F9FF;
-    }
-
-    /* Contentor do Login */
-    .login-box {
-        background-color: white;
-        padding: 40px;
-        border-radius: 30px;
-        box-shadow: 0px 10px 30px rgba(0, 0, 0, 0.05);
-        text-align: center;
-    }
-
-    /* Estilização dos inputs */
-    .stTextInput > div > div > input {
-        background-color: #F1F4F9;
-        border: none;
-        border-radius: 15px;
-        padding: 15px;
-        height: 50px;
-    }
-
-    /* Botão Entrar (Escuro como na imagem) */
-    div.stButton > button {
+    .stApp { background-color: #F8F9FF; }
+    .stButton>button {
         background-color: #111827;
         color: white;
-        width: 100%;
         border-radius: 20px;
-        height: 60px;
-        font-weight: bold;
-        font-size: 18px;
+        height: 3em;
+        width: 100%;
         border: none;
-        transition: 0.3s;
+        font-weight: bold;
     }
-    
-    div.stButton > button:hover {
-        background-color: #2D3748;
-        color: white;
-    }
-
-    /* Logo e Títulos */
-    .main-title {
-        color: #111827;
-        font-family: 'Helvetica Neue', sans-serif;
-        font-weight: 800;
-        font-size: 32px;
-        margin-bottom: 0px;
-    }
-    .main-title span { color: #6366F1; }
-    .sub-title {
-        color: #9CA3AF;
-        letter-spacing: 2px;
-        font-size: 12px;
-        font-weight: 600;
-        margin-bottom: 30px;
+    .product-card {
+        background: white;
+        padding: 15px;
+        border-radius: 20px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        text-align: center;
+        margin-bottom: 15px;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. DEFINIÇÃO DE UTILIZADORES
-utilizadores = {
-    "ricardo": {"senha": "123", "nivel": "admin"},
-    "miguel": {"senha": "111", "nivel": "user"},
-    "brites": {"senha": "222", "nivel": "user"},
-    "toni": {"senha": "333", "nivel": "user"}
-}
+# GESTÃO DE ESTADO (Equivalente ao AuthState do React)
+if "isAuthenticated" not in st.session_state:
+    st.session_state.update({
+        "isAuthenticated": False,
+        "user": None,
+        "session": None, # Guarda o Turno (Abertura/Fecho)
+        "step": "login"
+    })
 
-if "autenticado" not in st.session_state:
-    st.session_state.autenticado = False
+# --- LÓGICA DE NAVEGAÇÃO ---
 
-# --- ECRÃ DE LOGIN ESTILIZADO ---
-if not st.session_state.autenticado:
-    # Cabeçalho Visual
-    st.markdown("<div style='text-align: center; margin-top: 50px;'>", unsafe_allow_html=True)
-    st.image("https://cdn-icons-png.flaticon.com/512/10552/10552013.png", width=80) # Ícone de check azul
-    st.markdown("<h1 class='main-title'>Valida<span>Control</span></h1>", unsafe_allow_html=True)
-    st.markdown("<p class='sub-title'>SMART EXPIRY SYSTEMS</p>", unsafe_allow_html=True)
-    
-    # Formulário
+# 1. AUTH (Replica Auth.tsx)
+if not st.session_state.isAuthenticated:
+    st.markdown("<h1 style='text-align:center;'>🔵 ValidaControl</h1>", unsafe_allow_html=True)
     with st.container():
-        u = st.text_input("EMAIL EMPRESARIAL", placeholder="ex: ricardo@loja.pt").lower().strip()
-        p = st.text_input("PALAVRA-PASSE", type="password", placeholder="••••••••")
-        
-        if st.button("Entrar na Loja"):
-            if u in utilizadores and utilizadores[u]["senha"] == p:
-                st.session_state.autenticado = True
-                st.session_state.user = u
-                st.session_state.nivel = utilizadores[u]["nivel"]
+        user_input = st.text_input("UTILIZADOR").lower().strip()
+        pass_input = st.text_input("PALAVRA-PASSE", type="password")
+        if st.button("ENTRAR NA LOJA"):
+            # Lógica de validação simples
+            if user_input == "ricardo":
+                st.session_state.update({"isAuthenticated": True, "user": {"name": "Ricardo", "role": "admin"}})
                 st.rerun()
-            else:
-                st.error("Credenciais incorretas")
-    st.markdown("</div>", unsafe_allow_html=True)
-    st.stop()
+            elif user_input in ["miguel", "brites", "toni"]:
+                st.session_state.update({"isAuthenticated": True, "user": {"name": user_input.capitalize(), "role": "operator"}})
+                st.rerun()
 
-# --- CONEXÃO AO SHEETS (Área Interna) ---
-conn = st.connection("gsheets", type=GSheetsConnection)
+# 2. PERIOD SELECTOR (Replica PeriodSelector.tsx)
+elif st.session_state.user['role'] == 'operator' and st.session_state.session is None:
+    st.markdown(f"### Olá, {st.session_state.user['name']}\nSeleccione o turno:")
+    col1, col2, col3 = st.columns(3)
+    if col1.button("🌅 ABERTURA"): st.session_state.session = "Abertura"; st.rerun()
+    if col2.button("☀️ TRANSIÇÃO"): st.session_state.session = "Transição"; st.rerun()
+    if col3.button("🌙 FECHO"): st.session_state.session = "Fecho"; st.rerun()
 
-# Conteúdo após o login (Admin/User)
-if st.session_state.nivel == "admin":
-    st.title("🛠️ Painel Admin")
-    # ... resto do código do Dashboard ...
-else:
-    st.title("📦 Seleção de Produto")
-    # ... resto do código das Fotos ...
+# 3. OPERATOR FORM (Replica OperatorForm.tsx)
+elif st.session_state.isAuthenticated:
+    if st.session_state.user['role'] == 'admin':
+        st.title("📊 Dashboard Admin")
+        # Aqui conectamos ao Sheets para ler registos
+    else:
+        st.markdown(f"**Turno:** {st.session_state.session}")
+        
+        # CONEXÃO GOOGLE SHEETS
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        
+        # BUSCAR PRODUTOS (Catálogo Visual)
+        try:
+            df_p = conn.read(worksheet="produtos")
+            st.write("Seleccione o produto para registar:")
+            
+            # Grelha de fotos
+            cols = st.columns(2)
+            for i, row in df_p.iterrows():
+                with cols[i % 2]:
+                    st.markdown(f'<div class="product-card">', unsafe_allow_html=True)
+                    st.image(row['Foto_URL'], use_container_width=True)
+                    if st.button(f"Registar {row['Nome']}", key=f"p_{i}"):
+                        st.session_state.selected_prod = row['Nome']
+                    st.markdown('</div>', unsafe_allow_html=True)
+            
+            # Form de data (aparece após clique na foto)
+            if "selected_prod" in st.session_state:
+                st.divider()
+                st.subheader(f"Data para: {st.session_state.selected_prod}")
+                val_date = st.date_input("Validade")
+                if st.button("Confirmar Registo"):
+                    # Aqui entra o código de gravar no Sheets
+                    st.success("Gravado com sucesso!")
+                    del st.session_state.selected_prod
+                    
+        except:
+            st.warning("Configure a aba 'produtos' no seu Google Sheets.")
 
-if st.sidebar.button("Terminar Sessão"):
-    st.session_state.autenticado = False
-    st.rerun()
+    if st.sidebar.button("Terminar Sessão"):
+        st.session_state.isAuthenticated = False
+        st.session_state.session = None
+        st.rerun()
