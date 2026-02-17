@@ -6,7 +6,7 @@ if not st.user.get("is_logged_in"):
     st.title("🔐 Gestão de Validades")
     st.info("Bem-vindo! Por favor, utilize a sua conta Google para aceder ao sistema.")
     if st.button("Entrar com Google"):
-        st.login()  # O Streamlit vai buscar as chaves [auth.google] automaticamente
+        st.login("google")# O Streamlit vai buscar as chaves [auth.google] automaticamente
     st.stop()
 
 # 2. Se logado, mostra a App
