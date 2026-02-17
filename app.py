@@ -1,60 +1,66 @@
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 
-st.set_page_config(page_title="Gestão de Validades", layout="wide")
+st.set_page_config(page_title="Controlo de Validades", layout="wide")
 
 # Inicialização da sessão
-if "auth_status" not in st.session_state:
-    st.session_state.auth_status = False
-    st.session_state.user_role = None
+if "autenticado" not in st.session_state:
+    st.session_state.autenticado = False
+    st.session_state.user = None
+    st.session_state.nivel = None
 
 # --- ECRÃ DE LOGIN ---
-if not st.session_state.auth_status:
-    st.title("🔐 Login - Sistema de Validades")
+if not st.session_state.autenticado:
+    st.title("🔐 Acesso ao Sistema")
     
-    with st.form("meu_login"):
-        u = st.text_input("Utilizador")
-        p = st.text_input("Palavra-passe", type="password")
-        submit = st.form_submit_button("Entrar")
+    with st.form("login_form"):
+        u = st.text_input("Utilizador").strip()
+        p = st.text_input("Palavra-passe", type="password").strip()
+        btn = st.form_submit_button("Entrar")
         
-        if submit:
+        if btn:
             try:
                 conn = st.connection("gsheets", type=GSheetsConnection)
-                # Tenta ler a aba de utilizadores
+                # Tentamos ler a aba de utilizadores
                 df_u = conn.read(worksheet="Utilizadores", ttl=0)
                 
-                # Procura o utilizador
+                # Validação
                 match = df_u[(df_u['utilizador'].astype(str) == u) & (df_u['senha'].astype(str) == p)]
                 
                 if not match.empty:
-                    st.session_state.auth_status = True
-                    st.session_state.user_role = match.iloc[0]['nivel']
+                    st.session_state.autenticado = True
+                    st.session_state.user = u
+                    st.session_state.nivel = match.iloc[0]['nivel']
                     st.rerun()
                 else:
-                    st.error("Credenciais inválidas")
+                    st.error("❌ Utilizador ou senha incorretos.")
             except Exception as e:
-                st.error("Erro: Verifica se a aba 'Utilizadores' existe no Sheets.")
+                st.error("🚨 Erro: Não foi possível encontrar a aba 'Utilizadores'.")
+                st.info("Garanta que o nome da aba no Excel é exatamente 'Utilizadores'.")
     st.stop()
 
-# --- ÁREA PÓS-LOGIN (ADMIN E USERS) ---
-st.sidebar.success(f"Perfil: {st.session_state.user_role}")
+# --- ÁREA PÓS-LOGIN ---
+st.sidebar.title(f"Olá, {st.session_state.user}!")
+st.sidebar.write(f"Acesso: **{st.session_state.nivel}**")
+
 if st.sidebar.button("Sair"):
-    st.session_state.auth_status = False
+    st.session_state.autenticado = False
     st.rerun()
 
-# Diferenciação de conteúdo
-if st.session_state.user_role == "admin":
-    st.title("🛠️ Painel Admin")
-    # Aqui podes pôr o link para editar ou funções extra
-    st.write("Bem-vindo, Chefe!")
+# Conteúdo baseado no nível
+if st.session_state.nivel == "admin":
+    st.title("🛠️ Painel de Administração")
+    st.write("Acesso total libertado.")
+    # Aqui podes colocar funções de edição
 else:
-    st.title("📦 Consulta de Stock")
-    st.write("Bem-vindo, Colaborador!")
+    st.title("📦 Consulta de Validades")
+    st.write("Acesso de consulta para colaboradores.")
 
-# Conteúdo comum: A Tabela de Validades
+# Mostrar a tabela principal (Aba 1)
 try:
     conn = st.connection("gsheets", type=GSheetsConnection)
-    df = conn.read() # Lê a primeira aba (Validades)
+    df = conn.read(ttl="1m") # Lê a primeira aba por padrão
+    st.subheader("Lista de Artigos")
     st.dataframe(df, use_container_width=True)
-except:
-    st.error("Erro ao carregar os dados principais.")
+except Exception as e:
+    st.error(f"Erro ao carregar dados da planilha: {e}")
