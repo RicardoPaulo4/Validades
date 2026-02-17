@@ -1,21 +1,24 @@
 import streamlit as st
 
-# Verifica se o utilizador já está logado
-if not st.user.get("is_logged_in"):
-    st.title("🔐 Acesso ao Sistema")
-    st.write("Bem-vindo! Identifique-se para continuar.")
-    
-    if st.button("Entrar com Google"):
+# Tenta limpar qualquer lixo de sessão anterior
+if 'auth_status' not in st.session_state:
+    st.session_state.auth_status = None
+
+st.title("Teste de Autenticação")
+
+# Verifica o estado real do utilizador
+user = st.user
+
+if not user.get("is_logged_in"):
+    st.warning("Estado: Não Logado")
+    if st.button("Efetuar Login"):
         st.login("google")
-    
-    st.stop() # Importante: interrompe o script aqui para quem não está logado
+    st.stop()
 
-# --- SE CHEGOU AQUI, O LOGIN FOI RECONHECIDO ---
-st.success(f"Olá, {st.user.name}!")
-st.write(f"Email: {st.user.email}")
+# Se ele conseguir passar do stop, o login funcionou!
+st.balloons()
+st.success(f"Sucesso! Bem-vindo {user.name}")
+st.write(f"O seu email é: {user.email}")
 
-if st.sidebar.button("Sair"):
+if st.button("Sair"):
     st.logout()
-
-# Aqui colocas o resto do teu código (tabelas, gráficos, etc.)
-st.title("📦 Inventário de Validades")
