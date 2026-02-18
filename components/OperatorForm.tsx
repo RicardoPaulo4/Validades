@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User, ProductTemplate, SessionData, ValidityRecord } from '../types.ts';
 import { supabaseService } from '../services/supabaseService.ts';
-import { analyzeProductLabel } from '../services/geminiService.ts';
 import StatusBadge from './StatusBadge.tsx';
 
 interface OperatorFormProps {
@@ -18,83 +17,70 @@ export default function OperatorForm({ user, session, activeTab = 'task', onFini
   const [sessionRecords, setSessionRecords] = useState<ValidityRecord[]>([]);
   const [expiryDate, setExpiryDate] = useState('');
   const [manualTime, setManualTime] = useState('');
-  const [noTime, setNoTime] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [alertExpired, setAlertExpired] = useState(false);
+  const [alertStatus, setAlertStatus] = useState<'none' | 'expired' | 'warning'>('none');
   const [searchTerm, setSearchTerm] = useState('');
-  const [aiDetected, setAiDetected] = useState(false);
   
   const [showReport, setShowReport] = useState(false);
   const [sendingReport, setSendingReport] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     supabaseService.getTemplates().then(all => {
+      // O admin define os períodos; aqui filtramos pelo que o admin configurou
       setTemplates(all.filter(t => t.periodos.includes(session.period)));
     });
   }, [session.period]);
 
-  const handleSelectTemplate = (t: ProductTemplate) => {
-    setSelectedTemplate(t);
-    if (!aiDetected) {
-      const suggestion = new Date();
-      suggestion.setDate(suggestion.getDate() + (t.tempo_vida_dias || 1));
-      setExpiryDate(suggestion.toISOString().split('T')[0]);
+  const validateExpiry = (date: string, time: string) => {
+    if (!date) return;
+    
+    const now = new Date();
+    const selected = new Date(date);
+    
+    // Resetar horas para comparação de dias
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    selected.setHours(0,0,0,0);
+
+    if (selected < today) {
+      setAlertStatus('expired');
+    } else if (selected.getTime() === today.getTime()) {
+      if (time) {
+        const [h, m] = time.split(':').map(Number);
+        const nowH = now.getHours();
+        const nowM = now.getMinutes();
+        if (h < nowH || (h === nowH && m < nowM)) {
+          setAlertStatus('expired');
+          return;
+        }
+      }
+      setAlertStatus('warning'); // Vence hoje
+    } else {
+      setAlertStatus('none');
     }
-    setManualTime('');
-    setNoTime(false);
   };
 
   const handleDateChange = (date: string) => {
     setExpiryDate(date);
-    const selected = new Date(date);
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    setAlertExpired(selected < today);
+    validateExpiry(date, manualTime);
   };
 
-  const handleAIAnalyze = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleTimeChange = (time: string) => {
+    setManualTime(time);
+    validateExpiry(expiryDate, time);
+  };
 
-    setIsAnalyzing(true);
-    setAiDetected(false);
-    try {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64 = reader.result as string;
-        const result = await analyzeProductLabel(base64);
-        
-        if (result && result.expiryDate) {
-          handleDateChange(result.expiryDate);
-          setAiDetected(true);
-          if (result.productName) {
-            const normalizedAI = result.productName.toLowerCase();
-            const match = templates.find(t => 
-              normalizedAI.includes(t.nome.toLowerCase()) ||
-              t.nome.toLowerCase().includes(normalizedAI)
-            );
-            if (match) setSelectedTemplate(match);
-            else setSearchTerm(result.productName);
-          }
-        } else {
-          alert('Não foi possível detetar a data automaticamente. Introduza manualmente.');
-        }
-      };
-      reader.readAsDataURL(file);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsAnalyzing(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
+  const handleSelectTemplate = (t: ProductTemplate) => {
+    setSelectedTemplate(t);
+    setExpiryDate('');
+    setManualTime(new Date().toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }));
+    setAlertStatus('none');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTemplate || !expiryDate || (!manualTime && !noTime)) return;
+    if (!selectedTemplate || !expiryDate || !manualTime) return;
 
     setIsSubmitting(true);
     try {
@@ -103,7 +89,7 @@ export default function OperatorForm({ user, session, activeTab = 'task', onFini
         nome_produto: selectedTemplate.nome,
         imagem_url: selectedTemplate.imagem_url,
         data_validade: expiryDate,
-        hora_registo: noTime ? 'Sem hora' : manualTime,
+        hora_registo: manualTime,
         periodo: session.period,
         criado_por_id: user.id,
         criado_por_nome: session.operatorName,
@@ -112,26 +98,18 @@ export default function OperatorForm({ user, session, activeTab = 'task', onFini
 
       setSessionRecords([newRecord, ...sessionRecords]);
       setSuccess(true);
-      setAiDetected(false);
+      
       setTimeout(() => {
         setSuccess(false);
         setSelectedTemplate(null);
         setExpiryDate('');
         setManualTime('');
-        setNoTime(false);
         setSearchTerm('');
-      }, 1000);
+      }, 1500);
     } catch (err) {
       alert('Erro ao guardar registo.');
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleDeleteFromHistory = async (id: string) => {
-    if (confirm('Eliminar este registo da sessão atual?')) {
-      await supabaseService.deleteRecord(id, user);
-      setSessionRecords(prev => prev.filter(r => r.id !== id));
     }
   };
 
@@ -141,38 +119,29 @@ export default function OperatorForm({ user, session, activeTab = 'task', onFini
 
   if (activeTab === 'history') {
     return (
-      <div className="max-w-xl mx-auto space-y-8 pb-32 animate-fade-in px-2">
+      <div className="max-w-xl mx-auto space-y-6 pb-32 animate-fade-in px-2">
         <div className="flex justify-between items-center bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm">
-          <div>
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight leading-none">Minha Sessão</h2>
-          </div>
-          <div className="bg-slate-900 text-white w-14 h-14 rounded-[20px] flex items-center justify-center font-black text-xl shadow-lg">
-            {sessionRecords.length}
+          <h2 className="text-xl font-black text-slate-900 tracking-tight">Sessão Atual</h2>
+          <div className="bg-indigo-600 text-white px-4 py-1 rounded-full font-black text-xs uppercase tracking-widest">
+            {sessionRecords.length} itens
           </div>
         </div>
 
-        <div className="grid gap-4">
+        <div className="grid gap-3">
           {sessionRecords.length === 0 ? (
-            <div className="bg-white p-16 rounded-[48px] border-2 border-dashed border-slate-100 text-center space-y-4">
-              <p className="text-slate-400 font-bold text-sm">Nenhum registo efectuado nesta sessão.</p>
+            <div className="bg-white p-12 rounded-[40px] text-center text-slate-400 font-bold border-2 border-dashed border-slate-100">
+              Nenhum registo efetuado.
             </div>
           ) : sessionRecords.map(r => (
-            <div key={r.id} className="bg-white p-5 rounded-[36px] border border-slate-100 shadow-sm flex items-center gap-5 group">
-              <div className="w-16 h-16 rounded-[24px] overflow-hidden shrink-0 shadow-inner">
-                <img src={r.imagem_url} className="w-full h-full object-cover" alt="" />
-              </div>
+            <div key={r.id} className="bg-white p-4 rounded-[28px] border border-slate-100 shadow-sm flex items-center gap-4">
+              <img src={r.imagem_url} className="w-14 h-14 rounded-2xl object-cover" alt="" />
               <div className="flex-1 min-w-0">
-                <h4 className="font-extrabold text-slate-900 text-sm truncate leading-tight mb-1">{r.nome_produto}</h4>
-                <div className="flex items-center gap-2">
-                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{new Date(r.data_validade).toLocaleDateString('pt-PT')}</p>
-                </div>
+                <h4 className="font-black text-slate-900 text-sm truncate">{r.nome_produto}</h4>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  {new Date(r.data_validade).toLocaleDateString('pt-PT')} @ {r.hora_registo}
+                </p>
               </div>
-              <div className="flex flex-col items-end gap-3">
-                <StatusBadge status={r.status} />
-                <button onClick={() => handleDeleteFromHistory(r.id)} className="text-slate-300 hover:text-red-500 transition-colors p-2 rounded-full hover:bg-red-50 active:scale-90">
-                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                </button>
-              </div>
+              <StatusBadge status={r.status} />
             </div>
           ))}
         </div>
@@ -182,87 +151,102 @@ export default function OperatorForm({ user, session, activeTab = 'task', onFini
 
   return (
     <div className="max-w-xl mx-auto space-y-8 pb-40 px-2">
-      {isAnalyzing && (
-        <div className="fixed inset-0 z-[100] bg-slate-900/90 backdrop-blur-2xl flex flex-col items-center justify-center p-8 text-white animate-fade-in">
-          <div className="relative w-72 h-72 border-2 border-indigo-400/40 rounded-[56px] overflow-hidden mb-10 shadow-2xl">
-            <div className="scan-line"></div>
-          </div>
-          <h3 className="text-2xl font-black tracking-tight">IA a Ler Rótulo...</h3>
-        </div>
-      )}
-
       {!selectedTemplate ? (
-        <div className="space-y-10 animate-fade-in">
-          <div className="flex justify-between items-end px-1">
-            <div className="space-y-1">
-              <h2 className="text-4xl font-black text-slate-900 tracking-tighter capitalize">{session.period}</h2>
-              <p className="text-slate-400 text-[11px] font-black uppercase tracking-[0.3em] ml-5">{session.operatorName}</p>
+        <div className="space-y-8 animate-fade-in">
+          <div className="flex justify-between items-center px-1">
+            <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">{session.period}</h2>
+            <div className="text-right">
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{session.operatorName}</p>
             </div>
           </div>
 
-          <div className="flex gap-4">
+          <div className="relative group">
             <input 
-              type="text" placeholder="Procurar ou digitar nome..."
-              className="w-full p-6 bg-white border-2 border-slate-100 rounded-[32px] shadow-sm pl-16 font-bold outline-none focus:ring-8 focus:ring-indigo-500/5 focus:border-indigo-500 transition-all text-lg"
+              type="text" placeholder="Pesquisar no catálogo..."
+              className="w-full p-6 bg-white border-2 border-slate-100 rounded-[32px] shadow-sm pl-16 font-bold outline-none focus:border-indigo-500 transition-all text-lg"
               value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
             />
-            <button 
-              onClick={() => fileInputRef.current?.click()}
-              className="p-6 bg-indigo-600 text-white rounded-[32px] shadow-2xl active:scale-90 transition-all hover:bg-indigo-700 flex-shrink-0"
-            >
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /></svg>
-              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" capture="environment" onChange={handleAIAnalyze} />
-            </button>
+            <svg className="w-6 h-6 absolute left-6 top-6 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
+          <div className="grid grid-cols-2 gap-4">
             {filteredTemplates.map(t => (
-              <button key={t.id} onClick={() => handleSelectTemplate(t)} className="bg-white p-3 rounded-[44px] border border-slate-100 shadow-sm hover:shadow-2xl transition-all">
-                <div className="aspect-square rounded-[36px] overflow-hidden mb-4 relative shadow-inner">
-                  <img src={t.imagem_url} className="w-full h-full object-cover" alt={t.nome} />
+              <button 
+                key={t.id} 
+                onClick={() => handleSelectTemplate(t)} 
+                className="bg-white p-3 rounded-[36px] border border-slate-100 shadow-sm hover:shadow-xl transition-all text-left group active:scale-95"
+              >
+                <div className="aspect-square rounded-[28px] overflow-hidden mb-3">
+                  <img src={t.imagem_url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={t.nome} />
                 </div>
-                <p className="font-black text-slate-800 text-xs px-3 truncate">{t.nome}</p>
+                <p className="font-black text-slate-800 text-xs px-2 truncate">{t.nome}</p>
               </button>
             ))}
           </div>
 
-          <div className="fixed bottom-24 left-0 right-0 px-6 flex justify-center z-40 pointer-events-none sm:static sm:px-0">
+          <div className="fixed bottom-24 left-0 right-0 px-6 flex justify-center z-40 sm:static sm:px-0">
             <button 
               onClick={() => setShowReport(true)}
-              className="pointer-events-auto w-full max-w-sm py-6 bg-slate-900 text-white rounded-[36px] font-black text-xl shadow-2xl active:scale-95 transition-all"
+              className="w-full max-w-sm py-6 bg-slate-900 text-white rounded-[32px] font-black text-xl shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3"
             >
-              Finalizar Tarefa
+              Finalizar Relatório
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
             </button>
           </div>
         </div>
       ) : (
-        <div className="animate-slide-up space-y-8">
-          <button onClick={() => { setSelectedTemplate(null); setSearchTerm(''); setAiDetected(false); }} className="px-4 py-3 bg-white rounded-full border border-slate-200 shadow-sm font-black text-[10px] uppercase tracking-widest active:scale-95">
-            ← Voltar
+        <div className="animate-slide-up space-y-6">
+          <button 
+            onClick={() => setSelectedTemplate(null)} 
+            className="flex items-center gap-2 text-slate-400 font-black text-[10px] uppercase tracking-widest px-4 py-2 bg-white rounded-full border border-slate-200 shadow-sm active:scale-95 transition-all"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7" /></svg>
+            Cancelar
           </button>
 
-          <div className="bg-white p-10 rounded-[56px] border border-slate-200 shadow-2xl space-y-10 relative overflow-hidden">
-             <div className="flex items-center gap-8">
-                <div className="w-28 h-28 rounded-[38px] overflow-hidden shadow-2xl border-4 border-white rotate-2">
-                  <img src={selectedTemplate.imagem_url} className="w-full h-full object-cover" alt="" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-4xl font-black text-slate-900 leading-[1.1] tracking-tighter">{selectedTemplate.nome}</h3>
-                </div>
+          <div className="bg-white p-8 rounded-[48px] border border-slate-200 shadow-2xl space-y-8">
+             <div className="flex items-center gap-6">
+                <img src={selectedTemplate.imagem_url} className="w-24 h-24 rounded-[32px] object-cover shadow-xl border-2 border-white" alt="" />
+                <h3 className="text-3xl font-black text-slate-900 leading-tight tracking-tighter">{selectedTemplate.nome}</h3>
              </div>
 
-             <form onSubmit={handleSubmit} className="space-y-10">
-                <input 
-                  type="date" required 
-                  className={`w-full p-8 text-3xl font-black rounded-[40px] border-3 outline-none transition-all ${alertExpired ? 'bg-red-50 border-red-200 text-red-600' : 'bg-slate-50 border-slate-100 focus:border-indigo-500 focus:bg-white'}`} 
-                  value={expiryDate} onChange={e => handleDateChange(e.target.value)} 
-                />
-                
+             <form onSubmit={handleSubmit} className="space-y-8">
+                <div className="space-y-2">
+                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-4">Data de Validade</label>
+                  <input 
+                    type="date" required 
+                    className={`w-full p-6 text-2xl font-black rounded-[32px] border-4 outline-none transition-all ${alertStatus === 'expired' ? 'bg-red-50 border-red-500 text-red-600' : alertStatus === 'warning' ? 'bg-amber-50 border-amber-400 text-amber-700' : 'bg-slate-50 border-slate-100 focus:border-indigo-500'}`} 
+                    value={expiryDate} onChange={e => handleDateChange(e.target.value)} 
+                  />
+                  {alertStatus === 'expired' && (
+                    <div className="flex items-center gap-2 text-red-600 text-[10px] font-black uppercase tracking-widest px-4 animate-shake">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                      Atenção: Produto Caducado!
+                    </div>
+                  )}
+                  {alertStatus === 'warning' && (
+                    <div className="text-amber-600 text-[10px] font-black uppercase tracking-widest px-4">
+                      Atenção: Expira Hoje!
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-4">Hora de Verificação</label>
+                  <input 
+                    type="time" required 
+                    className="w-full p-6 text-4xl font-black rounded-[32px] bg-slate-50 border-4 border-slate-100 outline-none text-center focus:border-indigo-500 transition-all tabular-nums" 
+                    value={manualTime} onChange={e => handleTimeChange(e.target.value)} 
+                  />
+                </div>
+
                 <button 
                   disabled={isSubmitting || success} 
-                  className={`w-full py-8 rounded-[40px] font-black text-2xl shadow-2xl transition-all duration-500 ${success ? 'bg-emerald-500 text-white scale-[1.05]' : 'bg-slate-900 text-white active:scale-95'}`}
+                  className={`w-full py-7 rounded-[32px] font-black text-xl shadow-2xl transition-all duration-500 ${success ? 'bg-emerald-500 text-white' : 'bg-slate-900 text-white active:scale-95'}`}
                 >
-                  {success ? 'SUCESSO ✓' : isSubmitting ? 'A GUARDAR...' : 'CONFIRMAR REGISTO'}
+                  {success ? 'REGISTADO ✓' : isSubmitting ? 'A GUARDAR...' : 'CONFIRMAR'}
                 </button>
              </form>
           </div>
@@ -270,28 +254,51 @@ export default function OperatorForm({ user, session, activeTab = 'task', onFini
       )}
 
       {showReport && (
-        <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-3xl z-[100] flex items-center justify-center p-6">
-          <div className="bg-white w-full max-w-sm rounded-[64px] p-12 space-y-10 animate-scale-in">
-            <h3 className="text-4xl font-black text-slate-900 tracking-tighter text-center">Relatório</h3>
-            <div className="space-y-5">
-               <div className="flex justify-between items-center p-7 bg-slate-50 rounded-[36px] border border-slate-100 shadow-inner">
-                  <span className="font-black text-slate-400 text-[11px] uppercase tracking-widest leading-tight">Registos</span>
-                  <span className="font-black text-5xl text-slate-900 tracking-tighter">{sessionRecords.length}</span>
+        <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl z-[100] flex items-center justify-center p-6">
+          <div className="bg-white w-full max-w-sm rounded-[56px] p-10 space-y-8 animate-scale-in border border-white/20">
+            <div className="text-center space-y-2">
+              <h3 className="text-3xl font-black text-slate-900 tracking-tighter">Finalizar Turno</h3>
+              <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest leading-relaxed">Resumo do período de {session.period}</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+               <div className="p-6 bg-slate-50 rounded-[32px] border border-slate-100 text-center">
+                  <span className="block font-black text-3xl text-slate-900">{sessionRecords.length}</span>
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total</span>
+               </div>
+               <div className="p-6 bg-red-50 rounded-[32px] border border-red-100 text-center">
+                  <span className="block font-black text-3xl text-red-600">{sessionRecords.filter(r => r.status === 'expired').length}</span>
+                  <span className="text-[9px] font-black text-red-400 uppercase tracking-widest">Caducados</span>
                </div>
             </div>
-            <button 
-              onClick={async () => {
-                setSendingReport(true);
-                await new Promise(r => setTimeout(r, 2000));
-                setSendingReport(false);
-                setShowReport(false);
-                onFinishTask();
-              }} 
-              disabled={sendingReport} 
-              className="w-full py-7 bg-indigo-600 text-white rounded-[36px] font-black text-xl shadow-2xl active:scale-95 transition-all"
-            >
-              {sendingReport ? 'ENVIANDO...' : 'ENVIAR RELATÓRIO'}
-            </button>
+
+            <div className="pt-4 space-y-4">
+              <button 
+                onClick={async () => {
+                  setSendingReport(true);
+                  // Simulação de envio de email
+                  await new Promise(r => setTimeout(r, 2500));
+                  setSendingReport(false);
+                  setShowReport(false);
+                  onFinishTask();
+                }} 
+                disabled={sendingReport} 
+                className="w-full py-6 bg-indigo-600 text-white rounded-[32px] font-black text-lg shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3"
+              >
+                {sendingReport ? (
+                  <>
+                    <div className="w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+                    A ENVIAR...
+                  </>
+                ) : 'ENVIAR RELATÓRIO EMAIL'}
+              </button>
+              <button 
+                onClick={() => setShowReport(false)} 
+                className="w-full text-slate-400 font-black text-[11px] uppercase tracking-widest hover:text-slate-900 transition-colors"
+              >
+                Voltar à Edição
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -1,14 +1,12 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { ValidityRecord, ProductTemplate, User } from '../types.ts';
+import { ValidityRecord, ProductTemplate, User, UserRole } from '../types.ts';
 
-// Credenciais do Supabase - Prioridade para Variáveis de Ambiente
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://jpemxxdpbndazwwmbpyt.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpwZW14eGRwYm5kYXp3d21icHl0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExOTEzMDIsImV4cCI6MjA4Njc2NzMwMn0.QH2dDFql8ywlZZiJHLo7QkbOLjyxEsT5JAiS5FSHHgA';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Função auxiliar para calcular o estado da validade
 function calculateStatus(r: any): ValidityRecord {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
@@ -26,13 +24,72 @@ function calculateStatus(r: any): ValidityRecord {
 }
 
 export const supabaseService = {
+  // --- Utilizadores ---
+  getUsers: async (): Promise<User[]> => {
+    try {
+      const { data, error } = await supabase.from('utilizadores').select('*');
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      const stored = localStorage.getItem('vc_users');
+      return stored ? JSON.parse(stored) : [
+        { id: '1', email: 'admin@valida.com', role: 'admin', name: 'Administrador', approved: true },
+        { id: '2', email: 'op@valida.com', role: 'operator', name: 'Operador Loja', approved: true }
+      ];
+    }
+  },
+
+  registerUser: async (userData: Omit<User, 'id' | 'approved'>): Promise<User> => {
+    const newUser: User = {
+      ...userData,
+      id: Math.random().toString(36).substr(2, 9),
+      approved: userData.role === 'admin'
+    };
+    
+    try {
+      const { data, error } = await supabase.from('utilizadores').insert([newUser]).select().single();
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      const users = JSON.parse(localStorage.getItem('vc_users') || '[]');
+      const updated = [...users, newUser];
+      localStorage.setItem('vc_users', JSON.stringify(updated));
+      return newUser;
+    }
+  },
+
+  updateUserStatus: async (userId: string, approved: boolean): Promise<boolean> => {
+    try {
+      const { error } = await supabase.from('utilizadores').update({ approved }).eq('id', userId);
+      if (error) throw error;
+      return true;
+    } catch (err) {
+      const users = JSON.parse(localStorage.getItem('vc_users') || '[]');
+      const updated = users.map((u: User) => u.id === userId ? { ...u, approved } : u);
+      localStorage.setItem('vc_users', JSON.stringify(updated));
+      return true;
+    }
+  },
+
+  removeUser: async (userId: string): Promise<boolean> => {
+    try {
+      const { error } = await supabase.from('utilizadores').delete().eq('id', userId);
+      if (error) throw error;
+      return true;
+    } catch (err) {
+      const users = JSON.parse(localStorage.getItem('vc_users') || '[]');
+      localStorage.setItem('vc_users', JSON.stringify(users.filter((u: User) => u.id !== userId)));
+      return true;
+    }
+  },
+
+  // --- Catálogo ---
   getTemplates: async (): Promise<ProductTemplate[]> => {
     try {
       const { data, error } = await supabase.from('templates').select('*');
       if (error) throw error;
       return data || [];
     } catch (err) {
-      console.warn("Using local catalog (LocalStorage)");
       const stored = localStorage.getItem('vc_templates');
       return stored ? JSON.parse(stored) : [];
     }
@@ -47,10 +104,11 @@ export const supabaseService = {
       const templates = JSON.parse(localStorage.getItem('vc_templates') || '[]');
       const newT = { ...template, id: Math.random().toString(36).substr(2, 9) };
       localStorage.setItem('vc_templates', JSON.stringify([...templates, newT]));
-      return newT;
+      return newT as ProductTemplate;
     }
   },
 
+  // --- Registos ---
   getRecords: async (): Promise<ValidityRecord[]> => {
     try {
       const { data, error } = await supabase.from('registos').select('*').order('data_validade', { ascending: true });

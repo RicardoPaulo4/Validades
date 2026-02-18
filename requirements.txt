@@ -1,4 +1,0 @@
-streamlit
-Authlib
-st-gsheets-connection
-pandas

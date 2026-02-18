@@ -1,32 +1,58 @@
 
 import React, { useState } from 'react';
-import { User } from '../types.ts';
+import { User, UserRole } from '../types.ts';
+import { supabaseService } from '../services/supabaseService.ts';
 
 interface AuthProps {
   onLogin: (user: User) => void;
 }
 
 const Auth: React.FC<AuthProps> = ({ onLogin }) => {
+  const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [role, setRole] = useState<UserRole>('operator');
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
+    setInfo('');
 
-    setTimeout(() => {
-      if (email === 'admin@valida.com' && password === 'admin123') {
-        onLogin({ id: '1', email, role: 'admin', name: 'Administrador' });
-      } else if (email === 'op@valida.com' && password === 'op123') {
-        onLogin({ id: '2', email, role: 'operator', name: 'Operador Loja' });
+    try {
+      const users = await supabaseService.getUsers();
+      
+      if (mode === 'login') {
+        const user = users.find(u => u.email === email);
+        if (user) {
+          // Nota: Em produção aqui haveria validação de password real via Auth Provider
+          if (!user.approved) {
+            setError('A sua conta ainda não foi aprovada pelo administrador.');
+          } else {
+            onLogin(user);
+          }
+        } else {
+          setError('Utilizador não encontrado.');
+        }
       } else {
-        setError('Credenciais inválidas. Use os dados demo abaixo.');
-        setIsLoading(false);
+        // Registo
+        if (users.some(u => u.email === email)) {
+          setError('Este email já está registado.');
+        } else {
+          await supabaseService.registerUser({ email, name, role });
+          setInfo('Solicitação enviada! Aguarde a aprovação do administrador.');
+          setMode('login');
+        }
       }
-    }, 1200);
+    } catch (err) {
+      setError('Ocorreu um erro. Tente novamente.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -45,62 +71,97 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         </div>
 
         <div className="bg-white py-10 px-8 shadow-2xl shadow-slate-200/50 rounded-[48px] border border-slate-100 space-y-8">
-          <form className="space-y-8" onSubmit={handleLogin}>
+          <div className="flex bg-slate-50 p-1.5 rounded-3xl">
+            <button 
+              onClick={() => setMode('login')}
+              className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all ${mode === 'login' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}
+            >
+              Login
+            </button>
+            <button 
+              onClick={() => setMode('register')}
+              className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all ${mode === 'register' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}
+            >
+              Registo
+            </button>
+          </div>
+
+          <form className="space-y-6" onSubmit={handleAuth}>
             {error && (
-              <div className="bg-red-50 text-red-600 text-[11px] font-black uppercase tracking-widest p-4 rounded-2xl border border-red-100 text-center animate-shake">
+              <div className="bg-red-50 text-red-600 text-[11px] font-black uppercase tracking-widest p-4 rounded-2xl border border-red-100 text-center">
                 {error}
               </div>
             )}
+            {info && (
+              <div className="bg-emerald-50 text-emerald-600 text-[11px] font-black uppercase tracking-widest p-4 rounded-2xl border border-emerald-100 text-center">
+                {info}
+              </div>
+            )}
             
+            {mode === 'register' && (
+              <>
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Nome Completo</label>
+                  <input
+                    type="text" required
+                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all font-semibold"
+                    placeholder="ex: João Silva"
+                    value={name} onChange={(e) => setName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Função Pretendida</label>
+                  <select 
+                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all font-semibold appearance-none"
+                    value={role} onChange={(e) => setRole(e.target.value as UserRole)}
+                  >
+                    <option value="operator">Operador de Loja</option>
+                    <option value="admin">Administrador</option>
+                  </select>
+                </div>
+              </>
+            )}
+
             <div className="space-y-2">
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Email Empresarial</label>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Email</label>
               <input
-                type="email"
-                required
-                className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 focus:bg-white outline-none transition-all font-semibold"
+                type="email" required
+                className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all font-semibold"
                 placeholder="ex: joao@loja.pt"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={email} onChange={(e) => setEmail(e.target.value)}
               />
             </div>
 
             <div className="space-y-2">
               <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Palavra-passe</label>
               <input
-                type="password"
-                required
-                className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 focus:bg-white outline-none transition-all font-semibold"
+                type="password" required
+                className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all font-semibold"
                 placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                value={password} onChange={(e) => setPassword(e.target.value)}
               />
             </div>
 
             <button
-              type="submit"
-              disabled={isLoading}
+              type="submit" disabled={isLoading}
               className="w-full py-6 bg-slate-900 text-white rounded-[32px] font-black text-lg shadow-2xl active:scale-[0.98] transition-all flex items-center justify-center"
             >
               {isLoading ? (
                 <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
               ) : (
-                'Entrar na Loja'
+                mode === 'login' ? 'Entrar na Loja' : 'Solicitar Acesso'
               )}
             </button>
           </form>
         </div>
 
-        <div className="flex flex-col gap-3">
-           <div className="bg-indigo-50/50 p-4 rounded-3xl border border-indigo-100/50">
-             <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest text-center mb-2">Credenciais de Demonstração</p>
-             <div className="flex justify-around">
-               <div className="text-[10px] font-bold text-slate-600">Admin: admin@valida.com / admin123</div>
-             </div>
-             <div className="flex justify-around mt-1">
-               <div className="text-[10px] font-bold text-slate-600">Op: op@valida.com / op123</div>
-             </div>
-           </div>
-        </div>
+        {mode === 'login' && (
+          <div className="bg-indigo-50/50 p-4 rounded-3xl border border-indigo-100/50 text-center">
+             <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-1">Acesso Rápido Demo</p>
+             <div className="text-[10px] font-bold text-slate-600">Admin: admin@valida.com / admin123</div>
+             <div className="text-[10px] font-bold text-slate-600">Op: op@valida.com / op123</div>
+          </div>
+        )}
       </div>
     </div>
   );
