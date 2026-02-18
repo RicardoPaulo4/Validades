@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { User, UserRole } from '../types.ts';
+import { User, UserRole, Loja, LOJAS_DISPONIVEIS } from '../types.ts';
 import { supabaseService } from '../services/supabaseService.ts';
 
 interface AuthProps {
@@ -13,6 +13,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [role, setRole] = useState<UserRole>('operator');
+  const [loja, setLoja] = useState<Loja>(LOJAS_DISPONIVEIS[0]);
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -27,36 +28,34 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
       const users = await supabaseService.getUsers();
       
       if (mode === 'login') {
-        const user = users.find(u => u.email === email);
+        const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
         if (user) {
-          // Nota: Em produção aqui haveria validação de password real via Auth Provider
           if (!user.approved) {
             setError('A sua conta ainda não foi aprovada pelo administrador.');
           } else {
             onLogin(user);
           }
         } else {
-          setError('Utilizador não encontrado.');
+          setError('Utilizador não encontrado. Utilize os dados demo abaixo.');
         }
       } else {
-        // Registo
-        if (users.some(u => u.email === email)) {
+        if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
           setError('Este email já está registado.');
         } else {
-          await supabaseService.registerUser({ email, name, role });
+          await supabaseService.registerUser({ email, name, role, loja });
           setInfo('Solicitação enviada! Aguarde a aprovação do administrador.');
           setMode('login');
         }
       }
     } catch (err) {
-      setError('Ocorreu um erro. Tente novamente.');
+      setError('Ocorreu um erro ao processar o pedido.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#fcfdff] px-6">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#fcfdff] px-6 py-12">
       <div className="w-full max-w-sm space-y-10 animate-fade-in">
         <div className="text-center space-y-4">
           <div className="bg-indigo-600 w-20 h-20 rounded-[32px] flex items-center justify-center mx-auto shadow-2xl shadow-indigo-200 animate-float">
@@ -73,12 +72,14 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         <div className="bg-white py-10 px-8 shadow-2xl shadow-slate-200/50 rounded-[48px] border border-slate-100 space-y-8">
           <div className="flex bg-slate-50 p-1.5 rounded-3xl">
             <button 
+              type="button"
               onClick={() => setMode('login')}
               className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all ${mode === 'login' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}
             >
               Login
             </button>
             <button 
+              type="button"
               onClick={() => setMode('register')}
               className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all ${mode === 'register' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}
             >
@@ -109,14 +110,37 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                     value={name} onChange={(e) => setName(e.target.value)}
                   />
                 </div>
+                
                 <div className="space-y-2">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Função Pretendida</label>
-                  <select 
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Papel / Função</label>
+                  <div className="flex bg-slate-50 p-1.5 rounded-2xl border-2 border-slate-100">
+                    <button 
+                      type="button"
+                      onClick={() => setRole('operator')}
+                      className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${role === 'operator' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+                    >
+                      Operador
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setRole('gerente')}
+                      className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${role === 'gerente' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+                    >
+                      Gerente
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Loja</label>
+                  <select
+                    required
                     className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all font-semibold appearance-none"
-                    value={role} onChange={(e) => setRole(e.target.value as UserRole)}
+                    value={loja} onChange={(e) => setLoja(e.target.value as Loja)}
                   >
-                    <option value="operator">Operador de Loja</option>
-                    <option value="admin">Administrador</option>
+                    {LOJAS_DISPONIVEIS.map(l => (
+                      <option key={l} value={l}>{l}</option>
+                    ))}
                   </select>
                 </div>
               </>
@@ -153,15 +177,18 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
               )}
             </button>
           </form>
-        </div>
 
-        {mode === 'login' && (
-          <div className="bg-indigo-50/50 p-4 rounded-3xl border border-indigo-100/50 text-center">
-             <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-1">Acesso Rápido Demo</p>
-             <div className="text-[10px] font-bold text-slate-600">Admin: admin@valida.com / admin123</div>
-             <div className="text-[10px] font-bold text-slate-600">Op: op@valida.com / op123</div>
-          </div>
-        )}
+          {mode === 'login' && (
+            <div className="pt-6 space-y-3 border-t border-slate-50">
+               <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.2em] text-center">Acesso Demo</p>
+               <div className="grid grid-cols-1 gap-2">
+                  <button onClick={() => {setEmail('ricardo.maio.paulo@gmail.com'); setPassword('admin123');}} className="text-[10px] py-2 bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-xl font-bold transition-all truncate px-2">Admin: ricardo.maio.paulo@gmail.com</button>
+                  <button onClick={() => {setEmail('gerente@valida.com'); setPassword('gerente123');}} className="text-[10px] py-2 bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-xl font-bold transition-all truncate px-2">Gerente: gerente@valida.com</button>
+                  <button onClick={() => {setEmail('op@valida.com'); setPassword('op123');}} className="text-[10px] py-2 bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-xl font-bold transition-all truncate px-2">Operador: op@valida.com</button>
+               </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

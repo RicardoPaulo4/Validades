@@ -24,7 +24,8 @@ const PeriodSelector: React.FC<PeriodSelectorProps> = ({ user, onStart }) => {
       onStart({
         operatorName,
         reportEmail,
-        period: selectedPeriod
+        period: selectedPeriod,
+        loja: user.loja
       });
     }
   };
@@ -33,23 +34,30 @@ const PeriodSelector: React.FC<PeriodSelectorProps> = ({ user, onStart }) => {
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 px-6 py-12 safe-top safe-bottom">
       <div className="w-full max-w-md space-y-8 animate-fade-in">
         <div className="text-center">
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Configurar Tarefa</h1>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Lista de Validades Diária</h1>
+          <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] mt-2">{user.loja}</p>
         </div>
 
         <form onSubmit={handleStart} className="space-y-6">
           <div className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm space-y-4">
-            <input 
-              type="text" required 
-              placeholder="Ex: João Silva"
-              className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all"
-              value={operatorName} onChange={e => setOperatorName(e.target.value)}
-            />
-            <input 
-              type="email" required 
-              placeholder="nome@empresa.com"
-              className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all"
-              value={reportEmail} onChange={e => setReportEmail(e.target.value)}
-            />
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Nome do Operador</label>
+              <input 
+                type="text" required 
+                placeholder="Ex: João Silva"
+                className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                value={operatorName} onChange={e => setOperatorName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Email de Reporte</label>
+              <input 
+                type="email" required 
+                placeholder="nome@empresa.com"
+                className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                value={reportEmail} onChange={e => setReportEmail(e.target.value)}
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-3">
@@ -70,7 +78,7 @@ const PeriodSelector: React.FC<PeriodSelectorProps> = ({ user, onStart }) => {
           </div>
 
           <button disabled={!selectedPeriod} className="w-full py-5 bg-slate-900 text-white rounded-[28px] font-black text-lg shadow-2xl active:scale-95 transition-all disabled:opacity-50">
-            Iniciar Registo de Validades
+            Iniciar Registo {user.loja}
           </button>
         </form>
       </div>

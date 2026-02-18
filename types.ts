@@ -1,13 +1,24 @@
 
-export type UserRole = 'admin' | 'operator';
+export type UserRole = 'admin' | 'operator' | 'gerente';
 export type Period = 'abertura' | 'transicao' | 'fecho';
 export type ProductGroup = 'Frescos' | 'Pão' | 'Molhos' | 'Coberturas' | 'McCafé' | 'Outros';
+export type Loja = 'Guarda' | 'Covilhã Drive' | 'Serra Shopping' | 'Castelo Branco Drive' | 'Fórum Castelo Branco' | 'Portalegre';
+
+export const LOJAS_DISPONIVEIS: Loja[] = [
+  'Guarda',
+  'Covilhã Drive',
+  'Serra Shopping',
+  'Castelo Branco Drive',
+  'Fórum Castelo Branco',
+  'Portalegre'
+];
 
 export interface User {
   id: string;
   email: string;
   role: UserRole;
   name: string;
+  loja: Loja;
   approved: boolean;
 }
 
@@ -15,6 +26,7 @@ export interface SessionData {
   operatorName: string;
   reportEmail: string;
   period: Period;
+  loja: Loja;
 }
 
 export interface ProductTemplate {
@@ -35,6 +47,7 @@ export interface ValidityRecord {
   hora_registo: string;
   periodo: Period;
   grupo?: ProductGroup;
+  loja: Loja;
   criado_por_id: string;
   criado_por_nome: string;
   criado_por_email: string;

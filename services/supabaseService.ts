@@ -1,11 +1,28 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { ValidityRecord, ProductTemplate, User, UserRole } from '../types.ts';
+import { ValidityRecord, ProductTemplate, User, UserRole, Loja } from '../types.ts';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://jpemxxdpbndazwwmbpyt.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpwZW14eGRwYm5kYXp3d21icHl0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExOTEzMDIsImV4cCI6MjA4Njc2NzMwMn0.QH2dDFql8ywlZZiJHLo7QkbOLjyxEsT5JAiS5FSHHgA';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+const ADMIN_EMAIL = 'ricardo.maio.paulo@gmail.com';
+
+// Mock Data para Simulação
+const MOCK_TEMPLATES: ProductTemplate[] = [
+  { id: 't1', nome: 'Pão Big Mac', imagem_url: 'https://images.unsplash.com/photo-1553979459-d2229ba7433b?q=80&w=200&auto=format&fit=crop', tempo_vida_dias: 3, periodos: ['abertura', 'transicao', 'fecho'], grupo: 'Pão' },
+  { id: 't2', nome: 'Carne 10:1', imagem_url: 'https://images.unsplash.com/photo-1586190848861-99aa4a171e90?q=80&w=200&auto=format&fit=crop', tempo_vida_dias: 2, periodos: ['abertura', 'fecho'], grupo: 'Frescos' },
+  { id: 't3', nome: 'Alface Iceberg', imagem_url: 'https://images.unsplash.com/photo-1556801712-76c8220706df?q=80&w=200&auto=format&fit=crop', tempo_vida_dias: 1, periodos: ['abertura', 'transicao', 'fecho'], grupo: 'Frescos' },
+  { id: 't4', nome: 'Molho Big Mac', imagem_url: 'https://images.unsplash.com/photo-1470337458703-46ad1756a187?q=80&w=200&auto=format&fit=crop', tempo_vida_dias: 7, periodos: ['transicao'], grupo: 'Molhos' },
+  { id: 't5', nome: 'Mistura Sundae', imagem_url: 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?q=80&w=200&auto=format&fit=crop', tempo_vida_dias: 5, periodos: ['abertura', 'fecho'], grupo: 'McCafé' }
+];
+
+const MOCK_RECORDS: Omit<ValidityRecord, 'status'>[] = [
+  { id: 'r1', template_id: 't1', nome_produto: 'Pão Big Mac', imagem_url: MOCK_TEMPLATES[0].imagem_url, data_validade: new Date(Date.now() - 86400000).toISOString().split('T')[0], hora_registo: '08:30', periodo: 'abertura', loja: 'Guarda', criado_por_id: '2', criado_por_nome: 'Operador Demo', criado_por_email: 'op@valida.com', grupo: 'Pão' },
+  { id: 'r2', template_id: 't2', nome_produto: 'Carne 10:1', imagem_url: MOCK_TEMPLATES[1].imagem_url, data_validade: new Date(Date.now() + 86400000).toISOString().split('T')[0], hora_registo: '22:15', periodo: 'fecho', loja: 'Guarda', criado_por_id: '2', criado_por_nome: 'Operador Demo', criado_por_email: 'op@valida.com', grupo: 'Frescos' },
+  { id: 'r3', template_id: 't3', nome_produto: 'Alface Iceberg', imagem_url: MOCK_TEMPLATES[2].imagem_url, data_validade: new Date().toISOString().split('T')[0], hora_registo: '12:00', periodo: 'transicao', loja: 'Covilhã Drive', criado_por_id: '3', criado_por_nome: 'Gerente Demo', criado_por_email: 'gerente@valida.com', grupo: 'Frescos' }
+];
 
 function calculateStatus(r: any): ValidityRecord {
   const now = new Date();
@@ -18,7 +35,7 @@ function calculateStatus(r: any): ValidityRecord {
   
   let status: ValidityRecord['status'] = 'valid';
   if (diffDays < 0) status = 'expired';
-  else if (diffDays <= 7) status = 'expiring_soon';
+  else if (diffDays <= 1) status = 'expiring_soon';
   
   return { ...r, status };
 }
@@ -33,17 +50,21 @@ export const supabaseService = {
     } catch (err) {
       const stored = localStorage.getItem('vc_users');
       return stored ? JSON.parse(stored) : [
-        { id: '1', email: 'admin@valida.com', role: 'admin', name: 'Administrador', approved: true },
-        { id: '2', email: 'op@valida.com', role: 'operator', name: 'Operador Loja', approved: true }
+        { id: '1', email: ADMIN_EMAIL, role: 'admin', name: 'Ricardo Paulo', approved: true, loja: 'Guarda' },
+        { id: '2', email: 'op@valida.com', role: 'operator', name: 'Operador Demo', approved: true, loja: 'Guarda' },
+        { id: '3', email: 'gerente@valida.com', role: 'gerente', name: 'Gerente Demo', approved: true, loja: 'Covilhã Drive' }
       ];
     }
   },
 
   registerUser: async (userData: Omit<User, 'id' | 'approved'>): Promise<User> => {
+    const isMainAdmin = userData.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+    
     const newUser: User = {
       ...userData,
       id: Math.random().toString(36).substr(2, 9),
-      approved: userData.role === 'admin'
+      role: isMainAdmin ? 'admin' : userData.role,
+      approved: isMainAdmin 
     };
     
     try {
@@ -91,7 +112,9 @@ export const supabaseService = {
       return data || [];
     } catch (err) {
       const stored = localStorage.getItem('vc_templates');
-      return stored ? JSON.parse(stored) : [];
+      if (stored) return JSON.parse(stored);
+      localStorage.setItem('vc_templates', JSON.stringify(MOCK_TEMPLATES));
+      return MOCK_TEMPLATES;
     }
   },
 
@@ -116,7 +139,9 @@ export const supabaseService = {
       return (data || []).map(calculateStatus);
     } catch (err) {
       const stored = localStorage.getItem('vc_records');
-      return (stored ? JSON.parse(stored) : []).map(calculateStatus);
+      if (stored) return (JSON.parse(stored) as any[]).map(calculateStatus);
+      localStorage.setItem('vc_records', JSON.stringify(MOCK_RECORDS));
+      return MOCK_RECORDS.map(calculateStatus);
     }
   },
 

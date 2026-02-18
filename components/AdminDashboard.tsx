@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ValidityRecord, ProductTemplate, User, Period, ProductGroup } from '../types.ts';
+import { ValidityRecord, ProductTemplate, User, Period, ProductGroup, Loja, LOJAS_DISPONIVEIS } from '../types.ts';
 import { supabaseService } from '../services/supabaseService.ts';
 import { compressImage, base64ToBlob } from '../utils/imageUtils.ts';
 import StatusBadge from './StatusBadge.tsx';
@@ -18,9 +18,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const [view, setView] = useState<'records' | 'catalog' | 'users'>('records');
   const [isAddingTemplate, setIsAddingTemplate] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  
+  const isAdmin = user.role === 'admin';
+  const isGerente = user.role === 'gerente';
+
+  // Gerentes só podem ver a sua loja e não podem mudar o filtro global
+  const [selectedLojaFilter, setSelectedLojaFilter] = useState<Loja | 'Todas'>(
+    isGerente ? user.loja : 'Todas'
+  );
 
   const [newTName, setNewTName] = useState('');
-  const [newTLife, setNewTLife] = useState(30);
+  const [newTLife, setNewTLife] = useState(3); // Valor padrão inicial
   const [newTImage, setNewTImage] = useState<string | null>(null);
   const [newTPeriods, setNewTPeriods] = useState<Period[]>(['abertura', 'transicao', 'fecho']);
   const [newTGroup, setNewTGroup] = useState<ProductGroup>('Frescos');
@@ -33,18 +41,40 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
 
   const loadData = async () => {
     setIsLoading(true);
-    const [recData, tempData, userData] = await Promise.all([
-      supabaseService.getRecords(),
-      supabaseService.getTemplates(),
-      supabaseService.getUsers()
-    ]);
-    setRecords(recData);
-    setTemplates(tempData);
-    setUsers(userData);
-    setIsLoading(false);
+    try {
+      const fetchPromises: Promise<any>[] = [
+        supabaseService.getRecords(),
+        supabaseService.getTemplates()
+      ];
+      
+      if (isAdmin) {
+        fetchPromises.push(supabaseService.getUsers());
+      }
+
+      const results = await Promise.all(fetchPromises);
+      setRecords(results[0]);
+      setTemplates(results[1]);
+      if (isAdmin) setUsers(results[2]);
+      
+    } catch (err) {
+      console.error("Erro ao carregar dados:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteRecord = async (id: string) => {
+    if (!isAdmin) return;
+    if (confirm('Tem a certeza que deseja eliminar este registo?')) {
+      const ok = await supabaseService.deleteRecord(id, user);
+      if (ok) {
+        setRecords(prev => prev.filter(r => r.id !== id));
+      }
+    }
   };
 
   const handleApproveUser = async (userId: string) => {
+    if (!isAdmin) return;
     const ok = await supabaseService.updateUserStatus(userId, true);
     if (ok) {
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, approved: true } : u));
@@ -52,6 +82,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   };
 
   const handleDeleteUser = async (userId: string) => {
+    if (!isAdmin) return;
     if (confirm('Eliminar este utilizador permanentemente?')) {
       const ok = await supabaseService.removeUser(userId);
       if (ok) setUsers(prev => prev.filter(u => u.id !== userId));
@@ -69,6 +100,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
 
   const handleAddTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAdmin) return;
     if (!newTImage || !newTName || newTPeriods.length === 0) {
       alert('Preencha todos os campos!');
       return;
@@ -99,7 +131,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
 
   const resetForm = () => {
     setNewTName('');
-    setNewTLife(30);
+    setNewTLife(3);
     setNewTImage(null);
     setNewTPeriods(['abertura', 'transicao', 'fecho']);
     setNewTGroup('Frescos');
@@ -110,6 +142,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       prev.includes(p) ? prev.filter(item => item !== p) : [...prev, p]
     );
   };
+
+  const filteredRecords = records.filter(r => 
+    selectedLojaFilter === 'Todas' || r.loja === selectedLojaFilter
+  );
 
   if (isLoading) {
     return (
@@ -122,79 +158,162 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
 
   return (
     <div className="space-y-8 animate-fade-in pb-20 max-w-4xl mx-auto">
-      <div className="flex bg-white/70 p-1.5 rounded-[28px] border border-slate-200 shadow-sm backdrop-blur-md overflow-x-auto no-scrollbar">
-        <button onClick={() => setView('records')} className={`flex-1 min-w-[100px] py-4 text-[10px] font-black uppercase tracking-widest rounded-[22px] transition-all ${view === 'records' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-500 hover:bg-white/50'}`}>Monitor</button>
-        <button onClick={() => setView('catalog')} className={`flex-1 min-w-[100px] py-4 text-[10px] font-black uppercase tracking-widest rounded-[22px] transition-all ${view === 'catalog' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-500 hover:bg-white/50'}`}>Catálogo</button>
-        <button onClick={() => setView('users')} className={`flex-1 min-w-[100px] py-4 text-[10px] font-black uppercase tracking-widest rounded-[22px] transition-all ${view === 'users' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-500 hover:bg-white/50'}`}>Utilizadores</button>
-      </div>
+      {/* Navegação Superior - Apenas para Admin */}
+      {isAdmin && (
+        <div className="flex bg-white/70 p-1.5 rounded-[28px] border border-slate-200 shadow-sm backdrop-blur-md overflow-x-auto no-scrollbar">
+          <button onClick={() => setView('records')} className={`flex-1 min-w-[100px] py-4 text-[10px] font-black uppercase tracking-widest rounded-[22px] transition-all ${view === 'records' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-500 hover:bg-white/50'}`}>Monitor</button>
+          <button onClick={() => setView('catalog')} className={`flex-1 min-w-[100px] py-4 text-[10px] font-black uppercase tracking-widest rounded-[22px] transition-all ${view === 'catalog' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-500 hover:bg-white/50'}`}>Catálogo</button>
+          <button onClick={() => setView('users')} className={`flex-1 min-w-[100px] py-4 text-[10px] font-black uppercase tracking-widest rounded-[22px] transition-all ${view === 'users' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-500 hover:bg-white/50'}`}>Utilizadores</button>
+        </div>
+      )}
 
+      {/* Monitor de Registos (Acessível a Admin e Gerente) */}
       {view === 'records' && (
         <div className="space-y-6">
+          <div className="px-4">
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Monitor de Validades</h2>
+            <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mt-1">
+              Dashboard de {isGerente ? 'Gerência' : 'Administração'} • {isGerente ? user.loja : 'Sistema Global'}
+            </p>
+          </div>
+
+          {/* Filtro de Lojas - Apenas Admin pode mudar */}
+          {isAdmin && (
+            <div className="bg-white p-4 rounded-[32px] border border-slate-100 shadow-sm">
+              <div className="flex flex-col sm:flex-row items-center gap-4">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2 shrink-0">Filtrar por Loja:</span>
+                <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
+                  <button 
+                    onClick={() => setSelectedLojaFilter('Todas')}
+                    className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${selectedLojaFilter === 'Todas' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                  >
+                    Todas
+                  </button>
+                  {LOJAS_DISPONIVEIS.map(l => (
+                    <button 
+                      key={l}
+                      onClick={() => setSelectedLojaFilter(l)}
+                      className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${selectedLojaFilter === l ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                    >
+                      {l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Cards de Estatísticas */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-             <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm">
+             <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm group hover:border-red-100 transition-all">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Itens Caducados</p>
-                <p className="text-4xl font-black text-red-600 tracking-tighter">{records.filter(r => r.status === 'expired').length}</p>
+                <p className="text-4xl font-black text-red-600 tracking-tighter">{filteredRecords.filter(r => r.status === 'expired').length}</p>
              </div>
-             <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm">
+             <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm group hover:border-amber-100 transition-all">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Próximos do Fim</p>
-                <p className="text-4xl font-black text-amber-500 tracking-tighter">{records.filter(r => r.status === 'expiring_soon').length}</p>
+                <p className="text-4xl font-black text-amber-500 tracking-tighter">{filteredRecords.filter(r => r.status === 'expiring_soon').length}</p>
              </div>
              <div className="bg-slate-900 p-6 rounded-[32px] shadow-xl">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Registos</p>
-                <p className="text-4xl font-black text-white tracking-tighter">{records.length}</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total {selectedLojaFilter !== 'Todas' ? selectedLojaFilter : 'Lojas'}</p>
+                <p className="text-4xl font-black text-white tracking-tighter">{filteredRecords.length}</p>
              </div>
           </div>
+          
           <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden">
-             <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50/50">
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Produto</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Validade</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Estado</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {records.map(r => (
-                    <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                           <img src={r.imagem_url} className="w-10 h-10 rounded-xl object-cover" />
-                           <div>
-                             <span className="font-bold text-slate-900 text-sm block leading-tight">{r.nome_produto}</span>
-                             <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">{r.grupo || 'Geral'}</span>
-                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-xs font-bold text-slate-500">{new Date(r.data_validade).toLocaleDateString('pt-PT')}</td>
-                      <td className="px-6 py-4"><StatusBadge status={r.status} /></td>
+             <div className="overflow-x-auto">
+               <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/50">
+                      <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Produto / Loja</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Validade</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Estado</th>
+                      {isAdmin && <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Ação</th>}
                     </tr>
-                  ))}
-                </tbody>
-             </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredRecords.length === 0 ? (
+                      <tr>
+                        <td colSpan={isAdmin ? 4 : 3} className="px-6 py-12 text-center text-slate-400 font-bold text-sm uppercase tracking-widest">Nenhum registo encontrado</td>
+                      </tr>
+                    ) : filteredRecords.map(r => (
+                      <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                             <img src={r.imagem_url} className="w-10 h-10 rounded-xl object-cover shadow-sm" />
+                             <div>
+                               <span className="font-bold text-slate-900 text-sm block leading-tight">{r.nome_produto}</span>
+                               <div className="flex items-center gap-2 mt-0.5">
+                                 <span className="text-[8px] font-black text-indigo-500 uppercase tracking-widest">{r.loja}</span>
+                                 <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">•</span>
+                                 <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{r.grupo || 'Geral'}</span>
+                               </div>
+                             </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded-lg">
+                            {new Date(r.data_validade).toLocaleDateString('pt-PT')} {r.hora_registo && r.hora_registo !== 'N/A' ? `@ ${r.hora_registo}` : ''}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4"><StatusBadge status={r.status} /></td>
+                        {isAdmin && (
+                          <td className="px-6 py-4 text-right">
+                            <button 
+                              onClick={() => handleDeleteRecord(r.id)}
+                              className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+               </table>
+             </div>
           </div>
         </div>
       )}
 
-      {view === 'catalog' && (
-        <div className="space-y-6">
+      {/* Catálogo e Gestão de Utilizadores - Apenas Admin */}
+      {isAdmin && view === 'catalog' && (
+        <div className="space-y-10">
           <div className="flex justify-between items-center px-4">
             <h3 className="text-xl font-black text-slate-900">Gestão de Produtos</h3>
-            <button onClick={() => setIsAddingTemplate(true)} className="px-6 py-3 bg-indigo-600 text-white rounded-full font-black text-[10px] uppercase tracking-widest shadow-lg">Novo Produto</button>
+            <button onClick={() => setIsAddingTemplate(true)} className="px-6 py-3 bg-indigo-600 text-white rounded-full font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-indigo-700 transition-all active:scale-95">Novo Produto</button>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {templates.map(t => (
-              <div key={t.id} className="bg-white p-4 rounded-[36px] border border-slate-100 shadow-sm text-center group">
-                <img src={t.imagem_url} className="w-full aspect-square rounded-[28px] object-cover mb-4 group-hover:scale-105 transition-transform" alt="" />
-                <h5 className="font-black text-slate-900 text-xs truncate">{t.nome}</h5>
-                <p className="text-[9px] font-bold text-indigo-500 uppercase mt-1">{t.grupo}</p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">{t.periodos.join(' • ')}</p>
-              </div>
-            ))}
+          
+          <div className="space-y-12">
+            {PRODUCT_GROUPS.map(group => {
+              const groupTemplates = templates.filter(t => t.grupo === group);
+              if (groupTemplates.length === 0) return null;
+              
+              return (
+                <section key={group} className="space-y-4 px-4">
+                  <div className="flex items-center gap-4">
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] whitespace-nowrap">{group}</h4>
+                    <div className="h-px bg-slate-200 w-full"></div>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {groupTemplates.map(t => (
+                      <div key={t.id} className="bg-white p-4 rounded-[36px] border border-slate-100 shadow-sm text-center group hover:shadow-md transition-all">
+                        <img src={t.imagem_url} className="w-full aspect-square rounded-[28px] object-cover mb-4 group-hover:scale-105 transition-transform" alt="" />
+                        <h5 className="font-black text-slate-900 text-xs truncate">{t.nome}</h5>
+                        <div className="mt-2 flex items-center justify-center gap-2">
+                           <span className="text-[9px] font-black bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-lg uppercase">{t.tempo_vida_dias} dias</span>
+                           <span className="text-[9px] font-bold text-slate-400 uppercase">{t.periodos.join(' • ')}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
           </div>
         </div>
       )}
 
-      {view === 'users' && (
+      {isAdmin && view === 'users' && (
         <div className="space-y-6">
           <div className="px-4">
             <h3 className="text-xl font-black text-slate-900">Gestão de Acessos</h3>
@@ -204,20 +323,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
             {users.map(u => (
               <div key={u.id} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm flex flex-col sm:flex-row sm:items-center gap-4 transition-all hover:shadow-md">
                 <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center shrink-0">
-                   <span className="font-black text-indigo-600 text-lg">{u.name.charAt(0)}</span>
+                   <span className="font-black text-indigo-600 text-lg">{u.name.charAt(0).toUpperCase()}</span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h4 className="font-black text-slate-900 text-base truncate">{u.name}</h4>
-                    <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${u.role === 'admin' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-400'}`}>{u.role}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${u.role === 'admin' ? 'bg-slate-900 text-white' : u.role === 'gerente' ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400'}`}>{u.role}</span>
                   </div>
-                  <p className="text-xs font-bold text-slate-400 truncate">{u.email}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-bold text-slate-400 truncate">{u.email}</p>
+                    <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">({u.loja})</span>
+                  </div>
                 </div>
                 <div className="flex items-center gap-3">
                   {!u.approved ? (
                     <button 
                       onClick={() => handleApproveUser(u.id)}
-                      className="px-6 py-3 bg-emerald-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all"
+                      className="px-6 py-3 bg-emerald-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all shadow-md shadow-emerald-100"
                     >
                       Aprovar
                     </button>
@@ -241,54 +363,56 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
         </div>
       )}
 
-      {isAddingTemplate && (
+      {/* Modal Novo Produto - Somente Admin */}
+      {isAddingTemplate && isAdmin && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-lg rounded-[48px] p-8 space-y-8 animate-scale-in max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center">
               <h3 className="text-2xl font-black text-slate-900">Novo Produto</h3>
-              <button onClick={() => setIsAddingTemplate(false)} className="p-2 text-slate-400">
+              <button onClick={() => setIsAddingTemplate(false)} className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
             <form onSubmit={handleAddTemplate} className="space-y-6">
               <div className="flex justify-center">
-                <button type="button" onClick={() => fileInputRef.current?.click()} className="w-32 h-32 rounded-[32px] border-4 border-dashed border-slate-200 flex flex-col items-center justify-center hover:border-indigo-500 overflow-hidden shrink-0">
-                  {newTImage ? <img src={newTImage} className="w-full h-full object-cover" /> : <span className="text-[10px] font-black text-slate-300">FOTO</span>}
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="w-32 h-32 rounded-[32px] border-4 border-dashed border-slate-200 flex flex-col items-center justify-center hover:border-indigo-500 overflow-hidden shrink-0 transition-all">
+                  {newTImage ? <img src={newTImage} className="w-full h-full object-cover" /> : <span className="text-[10px] font-black text-slate-300 text-center px-2 uppercase tracking-widest">Clique para Foto</span>}
                 </button>
                 <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageChange} />
               </div>
 
-              <div className="space-y-4">
+              <div className="grid gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Nome do Produto</label>
-                  <input type="text" required placeholder="Ex: Croissant" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold outline-none focus:border-indigo-500" value={newTName} onChange={e => setNewTName(e.target.value)} />
+                  <input type="text" required placeholder="Ex: Croissant" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold outline-none focus:border-indigo-500 transition-all" value={newTName} onChange={e => setNewTName(e.target.value)} />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Grupo / Categoria</label>
-                  <select 
-                    required
-                    className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold outline-none focus:border-indigo-500 appearance-none"
-                    value={newTGroup}
-                    onChange={(e) => setNewTGroup(e.target.value as ProductGroup)}
-                  >
-                    {PRODUCT_GROUPS.map(g => (
-                      <option key={g} value={g}>{g}</option>
-                    ))}
-                  </select>
+                <div className="grid grid-cols-2 gap-4">
+                   <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Validade (Dias)</label>
+                      <input type="number" required min="1" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold outline-none focus:border-indigo-500 transition-all" value={newTLife} onChange={e => setNewTLife(Number(e.target.value))} />
+                   </div>
+                   <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Grupo</label>
+                      <select required className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold outline-none focus:border-indigo-500 appearance-none transition-all" value={newTGroup} onChange={(e) => setNewTGroup(e.target.value as ProductGroup)}>
+                        {PRODUCT_GROUPS.map(g => (
+                          <option key={g} value={g}>{g}</option>
+                        ))}
+                      </select>
+                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Períodos de Verificação</label>
                   <div className="flex gap-2">
                     {(['abertura', 'transicao', 'fecho'] as Period[]).map(p => (
-                      <button key={p} type="button" onClick={() => togglePeriod(p)} className={`flex-1 py-3 rounded-xl font-black text-[9px] uppercase transition-all ${newTPeriods.includes(p) ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}>{p}</button>
+                      <button key={p} type="button" onClick={() => togglePeriod(p)} className={`flex-1 py-3 rounded-xl font-black text-[9px] uppercase transition-all ${newTPeriods.includes(p) ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 text-slate-400'}`}>{p}</button>
                     ))}
                   </div>
                 </div>
               </div>
 
-              <button disabled={isSubmitting} className="w-full py-5 bg-slate-900 text-white rounded-[24px] font-black text-lg shadow-xl active:scale-[0.98] transition-all">
+              <button disabled={isSubmitting} className="w-full py-5 bg-slate-900 text-white rounded-[24px] font-black text-lg shadow-xl active:scale-[0.98] transition-all disabled:opacity-50">
                 {isSubmitting ? 'A criar...' : 'Guardar Produto'}
               </button>
             </form>

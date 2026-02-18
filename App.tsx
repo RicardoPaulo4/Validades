@@ -101,8 +101,9 @@ const App: React.FC = () => {
                 onTabChange={setOperatorTab}
                 onLogout={logout}
               >
-                {authState.user?.role === 'admin' ? (
-                  <AdminDashboard user={authState.user} />
+                {/* Admin e Gerente usam o AdminDashboard (Gerente tem restrições dentro do componente) */}
+                {authState.user?.role === 'admin' || authState.user?.role === 'gerente' ? (
+                  <AdminDashboard user={authState.user!} />
                 ) : (
                   <OperatorForm 
                     user={authState.user!} 

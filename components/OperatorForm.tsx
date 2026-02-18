@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { User, ProductTemplate, SessionData, ValidityRecord } from '../types.ts';
+import { User, ProductTemplate, SessionData, ValidityRecord, ProductGroup } from '../types.ts';
 import { supabaseService } from '../services/supabaseService.ts';
 import StatusBadge from './StatusBadge.tsx';
 
@@ -11,12 +11,15 @@ interface OperatorFormProps {
   onFinishTask: () => void;
 }
 
+const PRODUCT_GROUPS: ProductGroup[] = ['Frescos', 'Pão', 'Molhos', 'Coberturas', 'McCafé', 'Outros'];
+
 export default function OperatorForm({ user, session, activeTab = 'task', onFinishTask }: OperatorFormProps) {
   const [templates, setTemplates] = useState<ProductTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<ProductTemplate | null>(null);
   const [sessionRecords, setSessionRecords] = useState<ValidityRecord[]>([]);
   const [expiryDate, setExpiryDate] = useState('');
   const [manualTime, setManualTime] = useState('');
+  const [isNoTime, setIsNoTime] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [alertStatus, setAlertStatus] = useState<'none' | 'expired' | 'warning'>('none');
@@ -27,18 +30,16 @@ export default function OperatorForm({ user, session, activeTab = 'task', onFini
 
   useEffect(() => {
     supabaseService.getTemplates().then(all => {
-      // O admin define os períodos; aqui filtramos pelo que o admin configurou
       setTemplates(all.filter(t => t.periodos.includes(session.period)));
     });
   }, [session.period]);
 
-  const validateExpiry = (date: string, time: string) => {
+  const validateExpiry = (date: string, time: string, noTime: boolean) => {
     if (!date) return;
     
     const now = new Date();
     const selected = new Date(date);
     
-    // Resetar horas para comparação de dias
     const today = new Date();
     today.setHours(0,0,0,0);
     selected.setHours(0,0,0,0);
@@ -46,7 +47,7 @@ export default function OperatorForm({ user, session, activeTab = 'task', onFini
     if (selected < today) {
       setAlertStatus('expired');
     } else if (selected.getTime() === today.getTime()) {
-      if (time) {
+      if (!noTime && time) {
         const [h, m] = time.split(':').map(Number);
         const nowH = now.getHours();
         const nowM = now.getMinutes();
@@ -55,7 +56,7 @@ export default function OperatorForm({ user, session, activeTab = 'task', onFini
           return;
         }
       }
-      setAlertStatus('warning'); // Vence hoje
+      setAlertStatus('warning');
     } else {
       setAlertStatus('none');
     }
@@ -63,24 +64,33 @@ export default function OperatorForm({ user, session, activeTab = 'task', onFini
 
   const handleDateChange = (date: string) => {
     setExpiryDate(date);
-    validateExpiry(date, manualTime);
+    validateExpiry(date, manualTime, isNoTime);
   };
 
   const handleTimeChange = (time: string) => {
     setManualTime(time);
-    validateExpiry(expiryDate, time);
+    setIsNoTime(false);
+    validateExpiry(expiryDate, time, false);
+  };
+
+  const toggleNoTime = () => {
+    const newVal = !isNoTime;
+    setIsNoTime(newVal);
+    if (newVal) setManualTime('');
+    validateExpiry(expiryDate, '', newVal);
   };
 
   const handleSelectTemplate = (t: ProductTemplate) => {
     setSelectedTemplate(t);
     setExpiryDate('');
     setManualTime(new Date().toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }));
+    setIsNoTime(false);
     setAlertStatus('none');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTemplate || !expiryDate || !manualTime) return;
+    if (!selectedTemplate || !expiryDate || (!manualTime && !isNoTime)) return;
 
     setIsSubmitting(true);
     try {
@@ -89,11 +99,13 @@ export default function OperatorForm({ user, session, activeTab = 'task', onFini
         nome_produto: selectedTemplate.nome,
         imagem_url: selectedTemplate.imagem_url,
         data_validade: expiryDate,
-        hora_registo: manualTime,
+        hora_registo: isNoTime ? 'N/A' : manualTime,
         periodo: session.period,
+        loja: session.loja,
         criado_por_id: user.id,
         criado_por_nome: session.operatorName,
-        criado_por_email: session.reportEmail
+        criado_por_email: session.reportEmail,
+        grupo: selectedTemplate.grupo
       });
 
       setSessionRecords([newRecord, ...sessionRecords]);
@@ -104,6 +116,7 @@ export default function OperatorForm({ user, session, activeTab = 'task', onFini
         setSelectedTemplate(null);
         setExpiryDate('');
         setManualTime('');
+        setIsNoTime(false);
         setSearchTerm('');
       }, 1500);
     } catch (err) {
@@ -154,16 +167,19 @@ export default function OperatorForm({ user, session, activeTab = 'task', onFini
       {!selectedTemplate ? (
         <div className="space-y-8 animate-fade-in">
           <div className="flex justify-between items-center px-1">
-            <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">{session.period}</h2>
+            <div className="flex flex-col">
+              <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">{session.period}</h2>
+              <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">{session.loja}</span>
+            </div>
             <div className="text-right">
                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{session.operatorName}</p>
             </div>
           </div>
 
-          <div className="relative group">
+          <div className="relative group sticky top-20 z-30">
             <input 
-              type="text" placeholder="Pesquisar no catálogo..."
-              className="w-full p-6 bg-white border-2 border-slate-100 rounded-[32px] shadow-sm pl-16 font-bold outline-none focus:border-indigo-500 transition-all text-lg"
+              type="text" placeholder="Pesquisar produto..."
+              className="w-full p-6 bg-white/80 backdrop-blur-md border-2 border-slate-100 rounded-[32px] shadow-lg pl-16 font-bold outline-none focus:border-indigo-500 transition-all text-lg"
               value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
             />
             <svg className="w-6 h-6 absolute left-6 top-6 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -171,19 +187,45 @@ export default function OperatorForm({ user, session, activeTab = 'task', onFini
             </svg>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            {filteredTemplates.map(t => (
-              <button 
-                key={t.id} 
-                onClick={() => handleSelectTemplate(t)} 
-                className="bg-white p-3 rounded-[36px] border border-slate-100 shadow-sm hover:shadow-xl transition-all text-left group active:scale-95"
-              >
-                <div className="aspect-square rounded-[28px] overflow-hidden mb-3">
-                  <img src={t.imagem_url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={t.nome} />
+          <div className="space-y-12">
+            {PRODUCT_GROUPS.map(group => {
+              const groupTemplates = filteredTemplates.filter(t => t.grupo === group);
+              if (groupTemplates.length === 0) return null;
+
+              return (
+                <div key={group} className="space-y-4">
+                  <div className="flex items-center gap-4 px-2">
+                    <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] whitespace-nowrap">{group}</h3>
+                    <div className="h-px bg-slate-200 w-full"></div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    {groupTemplates.map(t => (
+                      <button 
+                        key={t.id} 
+                        onClick={() => handleSelectTemplate(t)} 
+                        className="bg-white p-3 rounded-[36px] border border-slate-100 shadow-sm hover:shadow-xl transition-all text-left group active:scale-95"
+                      >
+                        <div className="aspect-square rounded-[28px] overflow-hidden mb-3">
+                          <img src={t.imagem_url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={t.nome} />
+                        </div>
+                        <p className="font-black text-slate-800 text-xs px-2 truncate">{t.nome}</p>
+                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest px-2 mt-0.5">{t.tempo_vida_dias} dias</p>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <p className="font-black text-slate-800 text-xs px-2 truncate">{t.nome}</p>
-              </button>
-            ))}
+              );
+            })}
+            
+            {filteredTemplates.length === 0 && (
+              <div className="py-20 text-center">
+                <div className="bg-slate-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                </div>
+                <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">Nenhum produto encontrado</p>
+              </div>
+            )}
           </div>
 
           <div className="fixed bottom-24 left-0 right-0 px-6 flex justify-center z-40 sm:static sm:px-0">
@@ -209,7 +251,10 @@ export default function OperatorForm({ user, session, activeTab = 'task', onFini
           <div className="bg-white p-8 rounded-[48px] border border-slate-200 shadow-2xl space-y-8">
              <div className="flex items-center gap-6">
                 <img src={selectedTemplate.imagem_url} className="w-24 h-24 rounded-[32px] object-cover shadow-xl border-2 border-white" alt="" />
-                <h3 className="text-3xl font-black text-slate-900 leading-tight tracking-tighter">{selectedTemplate.nome}</h3>
+                <div>
+                  <h3 className="text-3xl font-black text-slate-900 leading-tight tracking-tighter">{selectedTemplate.nome}</h3>
+                  <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">{selectedTemplate.grupo}</span>
+                </div>
              </div>
 
              <form onSubmit={handleSubmit} className="space-y-8">
@@ -233,13 +278,29 @@ export default function OperatorForm({ user, session, activeTab = 'task', onFini
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-4">Hora de Verificação</label>
-                  <input 
-                    type="time" required 
-                    className="w-full p-6 text-4xl font-black rounded-[32px] bg-slate-50 border-4 border-slate-100 outline-none text-center focus:border-indigo-500 transition-all tabular-nums" 
-                    value={manualTime} onChange={e => handleTimeChange(e.target.value)} 
-                  />
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center px-4">
+                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Hora de Verificação</label>
+                    <button 
+                      type="button" 
+                      onClick={toggleNoTime}
+                      className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${isNoTime ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
+                    >
+                      {isNoTime ? 'SEM HORA ✓' : 'SEM HORA'}
+                    </button>
+                  </div>
+                  
+                  {!isNoTime ? (
+                    <input 
+                      type="time" required 
+                      className="w-full p-6 text-4xl font-black rounded-[32px] bg-slate-50 border-4 border-slate-100 outline-none text-center focus:border-indigo-500 transition-all tabular-nums" 
+                      value={manualTime} onChange={e => handleTimeChange(e.target.value)} 
+                    />
+                  ) : (
+                    <div className="w-full p-10 bg-indigo-50 rounded-[32px] border-4 border-indigo-100 flex items-center justify-center">
+                      <span className="text-xl font-black text-indigo-400 uppercase tracking-widest">Apenas Data</span>
+                    </div>
+                  )}
                 </div>
 
                 <button 
@@ -258,7 +319,7 @@ export default function OperatorForm({ user, session, activeTab = 'task', onFini
           <div className="bg-white w-full max-w-sm rounded-[56px] p-10 space-y-8 animate-scale-in border border-white/20">
             <div className="text-center space-y-2">
               <h3 className="text-3xl font-black text-slate-900 tracking-tighter">Finalizar Turno</h3>
-              <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest leading-relaxed">Resumo do período de {session.period}</p>
+              <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest leading-relaxed">Resumo do período de {session.period} - {session.loja}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -276,7 +337,6 @@ export default function OperatorForm({ user, session, activeTab = 'task', onFini
               <button 
                 onClick={async () => {
                   setSendingReport(true);
-                  // Simulação de envio de email
                   await new Promise(r => setTimeout(r, 2500));
                   setSendingReport(false);
                   setShowReport(false);
