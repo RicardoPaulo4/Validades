@@ -30,6 +30,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const [newTName, setNewTName] = useState('');
   const [newTLife, setNewTLife] = useState(3); // Valor padrão inicial
   const [newTImage, setNewTImage] = useState<string | null>(null);
+  const [newTImageFile, setNewTImageFile] = useState<File | null>(null);
   const [newTPeriods, setNewTPeriods] = useState<Period[]>(['abertura', 'transicao', 'fecho']);
   const [newTGroup, setNewTGroup] = useState<ProductGroup>('Frescos');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -104,6 +105,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setNewTImageFile(file);
       const reader = new FileReader();
       reader.onload = (ev) => setNewTImage(ev.target?.result as string);
       reader.readAsDataURL(file);
@@ -113,22 +115,34 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const handleAddTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) return;
-    if (!newTImage || !newTName || newTPeriods.length === 0) {
+    if (!newTImageFile || !newTName || newTPeriods.length === 0) {
       alert('Preencha todos os campos!');
       return;
     }
     setIsSubmitting(true);
     try {
-      const compressed = await compressImage(newTImage);
-      const blob = base64ToBlob(compressed);
+      // Use the file directly instead of fetching from a data URL
+      let blob: Blob = newTImageFile;
+      
+      // Attempt to compress if it's a large image
+      try {
+        if (newTImage) {
+          const compressed = await compressImage(newTImage);
+          blob = base64ToBlob(compressed);
+        }
+      } catch (compressErr) {
+        console.warn('Compression failed, using original file:', compressErr);
+      }
       
       let url = '';
       try {
+        console.log('Attempting upload to Supabase...');
         url = await supabaseService.uploadImage(blob, `cat_${newTName.replace(/\s+/g, '_')}.jpg`);
       } catch (uploadErr: any) {
-        console.error('Upload failed:', uploadErr);
-        const errorMsg = uploadErr?.message || 'Erro desconhecido';
-        if (confirm(`Falha no servidor (${errorMsg}). Deseja usar uma imagem padrão para continuar?`)) {
+        console.error('Upload failed details:', uploadErr);
+        const errorMsg = uploadErr?.message || 'Erro de rede ou CORS';
+        
+        if (confirm(`Falha no servidor (${errorMsg}).\n\nIsto acontece geralmente quando o CORS não está configurado no Supabase.\n\nDeseja usar uma imagem padrão para continuar?`)) {
           url = `https://images.unsplash.com/photo-1550989460-0adf9ea622e2?q=80&w=200&auto=format&fit=crop`;
         } else {
           setIsSubmitting(false);
@@ -158,6 +172,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
     setNewTName('');
     setNewTLife(3);
     setNewTImage(null);
+    setNewTImageFile(null);
     setNewTPeriods(['abertura', 'transicao', 'fecho']);
     setNewTGroup('Frescos');
   };
