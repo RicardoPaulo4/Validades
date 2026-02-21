@@ -131,6 +131,18 @@ export const supabaseService = {
     }
   },
 
+  deleteTemplate: async (id: string): Promise<boolean> => {
+    try {
+      const { error } = await supabase.from('templates').delete().eq('id', id);
+      if (error) throw error;
+      return true;
+    } catch (err) {
+      const templates = JSON.parse(localStorage.getItem('vc_templates') || '[]');
+      localStorage.setItem('vc_templates', JSON.stringify(templates.filter((t: any) => t.id !== id)));
+      return true;
+    }
+  },
+
   // --- Registos ---
   getRecords: async (): Promise<ValidityRecord[]> => {
     try {
@@ -178,7 +190,8 @@ export const supabaseService = {
       if (error) throw error;
       return supabase.storage.from('produtos_fotos').getPublicUrl(data.path).data.publicUrl;
     } catch (err) {
-      return `https://images.unsplash.com/photo-1550989460-0adf9ea622e2?q=80&w=200&auto=format&fit=crop`;
+      console.error('Erro no upload da imagem:', err);
+      throw err;
     }
   }
 };

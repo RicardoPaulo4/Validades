@@ -89,6 +89,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
     }
   };
 
+  const handleDeleteTemplate = async (id: string) => {
+    if (!isAdmin) return;
+    if (confirm('Tem a certeza que deseja eliminar este produto do catálogo?')) {
+      const ok = await supabaseService.deleteTemplate(id);
+      if (ok) {
+        setTemplates(prev => prev.filter(t => t.id !== id));
+      } else {
+        alert('Erro ao eliminar produto.');
+      }
+    }
+  };
+
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -109,7 +121,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
     try {
       const compressed = await compressImage(newTImage);
       const blob = base64ToBlob(compressed);
-      const url = await supabaseService.uploadImage(blob, `cat_${newTName}.jpg`);
+      
+      let url = '';
+      try {
+        url = await supabaseService.uploadImage(blob, `cat_${newTName.replace(/\s+/g, '_')}.jpg`);
+      } catch (uploadErr) {
+        console.error('Upload failed:', uploadErr);
+        if (confirm('Falha ao carregar a imagem para o servidor. Deseja usar uma imagem padrão para continuar?')) {
+          url = `https://images.unsplash.com/photo-1550989460-0adf9ea622e2?q=80&w=200&auto=format&fit=crop`;
+        } else {
+          setIsSubmitting(false);
+          return;
+        }
+      }
       
       const newT = await supabaseService.addTemplate({
         nome: newTName,
@@ -296,7 +320,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {groupTemplates.map(t => (
-                      <div key={t.id} className="bg-white p-4 rounded-[36px] border border-slate-100 shadow-sm text-center group hover:shadow-md transition-all">
+                      <div key={t.id} className="bg-white p-4 rounded-[36px] border border-slate-100 shadow-sm text-center group hover:shadow-md transition-all relative">
+                        {isAdmin && (
+                          <button 
+                            onClick={() => handleDeleteTemplate(t.id)}
+                            className="absolute top-2 right-2 p-2 bg-white/80 backdrop-blur-sm text-slate-300 hover:text-red-500 rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-all z-10"
+                            title="Eliminar Produto"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                          </button>
+                        )}
                         <img src={t.imagem_url} className="w-full aspect-square rounded-[28px] object-cover mb-4 group-hover:scale-105 transition-transform" alt="" />
                         <h5 className="font-black text-slate-900 text-xs truncate">{t.nome}</h5>
                         <div className="mt-2 flex items-center justify-center gap-2">
