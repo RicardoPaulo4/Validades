@@ -2,8 +2,16 @@
 import { createClient } from '@supabase/supabase-js';
 import { ValidityRecord, ProductTemplate, User, UserRole, Loja } from '../types.ts';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://ehstardbwrddkxieojiqi.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoc3RhcmRid3Jka3hpZW9qaWlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2OTAxNzEsImV4cCI6MjA4NzI2NjE3MX0.ix24lr8fujGqZ1P0yV2vvf3OEXqn3rpAiFrFUYXa8Cs';
+const rawUrl = import.meta.env.VITE_SUPABASE_URL;
+const rawKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+const supabaseUrl = (rawUrl && rawUrl.trim().startsWith('http')) 
+  ? rawUrl.trim() 
+  : 'https://ehstardbwrddkxieojiqi.supabase.co';
+
+const supabaseAnonKey = (rawKey && rawKey.trim().length > 20) 
+  ? rawKey.trim() 
+  : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoc3RhcmRid3Jka3hpZW9qaWlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2OTAxNzEsImV4cCI6MjA4NzI2NjE3MX0.ix24lr8fujGqZ1P0yV2vvf3OEXqn3rpAiFrFUYXa8Cs';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
@@ -185,7 +193,7 @@ export const supabaseService = {
 
   uploadImage: async (blob: Blob, fileName: string): Promise<string> => {
     try {
-      const filePath = `public/${Date.now()}_${fileName}`;
+      const filePath = `${Date.now()}_${fileName}`;
       const { data, error } = await supabase.storage.from('produtos_fotos').upload(filePath, blob);
       if (error) throw error;
       return supabase.storage.from('produtos_fotos').getPublicUrl(data.path).data.publicUrl;
