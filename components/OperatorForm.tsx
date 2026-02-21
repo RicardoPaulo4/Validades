@@ -147,7 +147,7 @@ export default function OperatorForm({ user, session, activeTab = 'task', onFini
             </div>
           ) : sessionRecords.map(r => (
             <div key={r.id} className="bg-white p-4 rounded-[28px] border border-slate-100 shadow-sm flex items-center gap-4">
-              <img src={r.imagem_url} className="w-14 h-14 rounded-2xl object-cover" alt="" />
+              <img src={r.imagem_url} referrerPolicy="no-referrer" className="w-14 h-14 rounded-2xl object-cover" alt="" />
               <div className="flex-1 min-w-0">
                 <h4 className="font-black text-slate-900 text-sm truncate">{r.nome_produto}</h4>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -207,7 +207,7 @@ export default function OperatorForm({ user, session, activeTab = 'task', onFini
                         className="bg-white p-3 rounded-[36px] border border-slate-100 shadow-sm hover:shadow-xl transition-all text-left group active:scale-95"
                       >
                         <div className="aspect-square rounded-[28px] overflow-hidden mb-3">
-                          <img src={t.imagem_url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={t.nome} />
+                          <img src={t.imagem_url} referrerPolicy="no-referrer" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={t.nome} />
                         </div>
                         <p className="font-black text-slate-800 text-xs px-2 truncate">{t.nome}</p>
                         <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest px-2 mt-0.5">{t.tempo_vida_dias} dias</p>
@@ -250,7 +250,7 @@ export default function OperatorForm({ user, session, activeTab = 'task', onFini
 
           <div className="bg-white p-8 rounded-[48px] border border-slate-200 shadow-2xl space-y-8">
              <div className="flex items-center gap-6">
-                <img src={selectedTemplate.imagem_url} className="w-24 h-24 rounded-[32px] object-cover shadow-xl border-2 border-white" alt="" />
+                <img src={selectedTemplate.imagem_url} referrerPolicy="no-referrer" className="w-24 h-24 rounded-[32px] object-cover shadow-xl border-2 border-white" alt="" />
                 <div>
                   <h3 className="text-3xl font-black text-slate-900 leading-tight tracking-tighter">{selectedTemplate.nome}</h3>
                   <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">{selectedTemplate.grupo}</span>
