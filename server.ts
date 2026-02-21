@@ -2,7 +2,6 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
-import { sendReportEmail } from "./services/emailService.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,15 +13,8 @@ async function startServer() {
   app.use(express.json());
 
   // API routes
-  app.post("/api/send-report", async (req, res) => {
-    try {
-      const { email, session, records } = req.body;
-      const result = await sendReportEmail(email, session, records);
-      res.json(result);
-    } catch (err: any) {
-      console.error("Server error:", err);
-      res.status(500).json({ error: err.message || "Erro interno ao enviar email." });
-    }
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok" });
   });
 
   // Vite middleware for development

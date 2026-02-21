@@ -24,7 +24,6 @@ export interface User {
 
 export interface SessionData {
   operatorName: string;
-  reportEmail: string;
   period: Period;
   loja: Loja;
 }
@@ -50,7 +49,6 @@ export interface ValidityRecord {
   loja: Loja;
   criado_por_id: string;
   criado_por_nome: string;
-  criado_por_email: string;
   status: 'valid' | 'expiring_soon' | 'expired';
 }
 

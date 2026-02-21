@@ -39,9 +39,9 @@ const MOCK_TEMPLATES: ProductTemplate[] = [
 ];
 
 const MOCK_RECORDS: Omit<ValidityRecord, 'status'>[] = [
-  { id: 'r1', template_id: 't1', nome_produto: 'Pão Big Mac', imagem_url: MOCK_TEMPLATES[0].imagem_url, data_validade: new Date(Date.now() - 86400000).toISOString().split('T')[0], hora_registo: '08:30', periodo: 'abertura', loja: 'Guarda', criado_por_id: '2', criado_por_nome: 'Operador Demo', criado_por_email: 'op@valida.com', grupo: 'Pão' },
-  { id: 'r2', template_id: 't2', nome_produto: 'Carne 10:1', imagem_url: MOCK_TEMPLATES[1].imagem_url, data_validade: new Date(Date.now() + 86400000).toISOString().split('T')[0], hora_registo: '22:15', periodo: 'fecho', loja: 'Guarda', criado_por_id: '2', criado_por_nome: 'Operador Demo', criado_por_email: 'op@valida.com', grupo: 'Frescos' },
-  { id: 'r3', template_id: 't3', nome_produto: 'Alface Iceberg', imagem_url: MOCK_TEMPLATES[2].imagem_url, data_validade: new Date().toISOString().split('T')[0], hora_registo: '12:00', periodo: 'transicao', loja: 'Covilhã Drive', criado_por_id: '3', criado_por_nome: 'Gerente Demo', criado_por_email: 'gerente@valida.com', grupo: 'Frescos' }
+  { id: 'r1', template_id: 't1', nome_produto: 'Pão Big Mac', imagem_url: MOCK_TEMPLATES[0].imagem_url, data_validade: new Date(Date.now() - 86400000).toISOString().split('T')[0], hora_registo: '08:30', periodo: 'abertura', loja: 'Guarda', criado_por_id: '2', criado_por_nome: 'Operador Demo', grupo: 'Pão' },
+  { id: 'r2', template_id: 't2', nome_produto: 'Carne 10:1', imagem_url: MOCK_TEMPLATES[1].imagem_url, data_validade: new Date(Date.now() + 86400000).toISOString().split('T')[0], hora_registo: '22:15', periodo: 'fecho', loja: 'Guarda', criado_por_id: '2', criado_por_nome: 'Operador Demo', grupo: 'Frescos' },
+  { id: 'r3', template_id: 't3', nome_produto: 'Alface Iceberg', imagem_url: MOCK_TEMPLATES[2].imagem_url, data_validade: new Date().toISOString().split('T')[0], hora_registo: '12:00', periodo: 'transicao', loja: 'Covilhã Drive', criado_por_id: '3', criado_por_nome: 'Gerente Demo', grupo: 'Frescos' }
 ];
 
 function calculateStatus(r: any): ValidityRecord {

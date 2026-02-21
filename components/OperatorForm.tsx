@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { User, ProductTemplate, SessionData, ValidityRecord, ProductGroup } from '../types.ts';
 import { supabaseService } from '../services/supabaseService.ts';
 import StatusBadge from './StatusBadge.tsx';
+import { generatePDFReport } from '../services/pdfService.ts';
 
 interface OperatorFormProps {
   user: User;
@@ -26,7 +27,7 @@ export default function OperatorForm({ user, session, activeTab = 'task', onFini
   const [searchTerm, setSearchTerm] = useState('');
   
   const [showReport, setShowReport] = useState(false);
-  const [sendingReport, setSendingReport] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   useEffect(() => {
     supabaseService.getTemplates().then(all => {
@@ -104,7 +105,6 @@ export default function OperatorForm({ user, session, activeTab = 'task', onFini
         loja: session.loja,
         criado_por_id: user.id,
         criado_por_nome: session.operatorName,
-        criado_por_email: session.reportEmail,
         grupo: selectedTemplate.grupo
       });
 
@@ -336,51 +336,33 @@ export default function OperatorForm({ user, session, activeTab = 'task', onFini
             <div className="pt-4 space-y-4">
               <button 
                 onClick={async () => {
-                  setSendingReport(true);
+                  setIsGeneratingPDF(true);
                   try {
-                    const response = await fetch('/api/send-report', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        email: session.reportEmail,
-                        session: session,
-                        records: sessionRecords
-                      })
-                    });
-                    
-                    if (!response.ok) {
-                      const errorText = await response.text();
-                      let errorMessage = `Erro do Servidor (${response.status})`;
-                      
-                      try {
-                        const errData = JSON.parse(errorText);
-                        errorMessage = errData.error || errorMessage;
-                      } catch (e) {
-                        errorMessage = `${errorMessage}: O serviço de email não está disponível ou retornou um erro inesperado.`;
-                      }
-                      throw new Error(errorMessage);
-                    }
-                    
-                    const successData = await response.json();
-                    alert(successData.message || 'Relatório enviado com sucesso para ' + session.reportEmail);
+                    generatePDFReport(session, sessionRecords);
+                    alert('Relatório PDF gerado com sucesso!');
                   } catch (err: any) {
-                    console.error('Erro ao enviar relatório:', err);
-                    alert('Erro ao enviar email: ' + err.message + '\n\nO registo foi guardado no sistema, mas o email falhou.');
+                    console.error('Erro ao gerar PDF:', err);
+                    alert('Erro ao gerar PDF: ' + err.message);
                   } finally {
-                    setSendingReport(false);
+                    setIsGeneratingPDF(false);
                     setShowReport(false);
                     onFinishTask();
                   }
                 }} 
-                disabled={sendingReport} 
+                disabled={isGeneratingPDF} 
                 className="w-full py-6 bg-indigo-600 text-white rounded-[32px] font-black text-lg shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3"
               >
-                {sendingReport ? (
+                {isGeneratingPDF ? (
                   <>
                     <div className="w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
-                    A ENVIAR...
+                    A GERAR...
                   </>
-                ) : 'ENVIAR RELATÓRIO EMAIL'}
+                ) : (
+                  <>
+                    DESCARREGAR PDF
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  </>
+                )}
               </button>
               <button 
                 onClick={() => setShowReport(false)} 
