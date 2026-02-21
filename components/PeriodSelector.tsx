@@ -50,10 +50,13 @@ const PeriodSelector: React.FC<PeriodSelectorProps> = ({ user, onStart }) => {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Email de Reporte</label>
+              <div className="flex justify-between items-center ml-4">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Emails de Reporte</label>
+                <span className="text-[8px] font-bold text-indigo-400 uppercase">Separar por vírgulas</span>
+              </div>
               <input 
-                type="email" required 
-                placeholder="nome@empresa.com"
+                type="text" required 
+                placeholder="email1@mcd.com, email2@mcd.com"
                 className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all"
                 value={reportEmail} onChange={e => setReportEmail(e.target.value)}
               />

@@ -337,10 +337,32 @@ export default function OperatorForm({ user, session, activeTab = 'task', onFini
               <button 
                 onClick={async () => {
                   setSendingReport(true);
-                  await new Promise(r => setTimeout(r, 2500));
-                  setSendingReport(false);
-                  setShowReport(false);
-                  onFinishTask();
+                  try {
+                    const response = await fetch('/api/send-report', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        email: session.reportEmail,
+                        session: session,
+                        records: sessionRecords
+                      })
+                    });
+                    
+                    if (!response.ok) {
+                      const errData = await response.json();
+                      throw new Error(errData.error || 'Erro ao enviar email');
+                    }
+                    
+                    const successData = await response.json();
+                    alert(successData.message || 'Relatório enviado com sucesso para ' + session.reportEmail);
+                  } catch (err: any) {
+                    console.error('Erro ao enviar relatório:', err);
+                    alert('Erro ao enviar email: ' + err.message + '\n\nO registo foi guardado no sistema, mas o email falhou.');
+                  } finally {
+                    setSendingReport(false);
+                    setShowReport(false);
+                    onFinishTask();
+                  }
                 }} 
                 disabled={sendingReport} 
                 className="w-full py-6 bg-indigo-600 text-white rounded-[32px] font-black text-lg shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3"
