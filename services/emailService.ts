@@ -1,18 +1,15 @@
-import { Resend } from 'resend';
-
 export const sendReportEmail = async (email: string, session: any, records: any) => {
-  const resendApiKey = process.env.RESEND_API_KEY;
-  const resend = resendApiKey ? new Resend(resendApiKey) : null;
-
-  if (!resend) {
-    console.log("--- MOCK EMAIL REPORT ---");
+  const brevoApiKey = process.env.BREVO_API_KEY;
+  
+  if (!brevoApiKey) {
+    console.log("--- MOCK EMAIL REPORT (BREVO REST) ---");
     console.log("To:", email);
     console.log("Subject:", `Relatório de Validades - ${session.loja} - ${session.period.toUpperCase()}`);
     console.log("Records Count:", records.length);
     console.log("--------------------------");
     return { 
       success: true, 
-      message: "Modo de Teste: O relatório foi gerado com sucesso para " + email + " (ver logs do servidor)." 
+      message: "Modo de Teste: O relatório foi gerado com sucesso para " + email + " (BREVO_API_KEY em falta)." 
     };
   }
 
@@ -69,27 +66,43 @@ export const sendReportEmail = async (email: string, session: any, records: any)
         </table>
       </div>
       <div style="background: #f8fafc; padding: 16px; text-align: center; font-size: 12px; color: #94a3b8;">
-        Enviado via ValidaControl PWA
+        Enviado via ValidaControl PWA (Brevo)
       </div>
     </div>
   `;
 
-  const recipients = email.split(',').map((e: string) => e.trim()).filter((e: string) => e.length > 0);
+  const recipientEmails = email.split(',').map((e: string) => e.trim()).filter((e: string) => e.length > 0);
   
-  if (recipients.length === 0) {
+  if (recipientEmails.length === 0) {
     throw new Error("Nenhum email válido fornecido.");
   }
 
-  const { data, error } = await resend.emails.send({
-    from: 'ValidaControl <onboarding@resend.dev>',
-    to: recipients,
-    subject: `Relatório de Validades - ${session.loja} - ${session.period.toUpperCase()}`,
-    html: htmlContent,
-  });
+  try {
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'api-key': brevoApiKey,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        sender: { name: "ValidaControl", email: "no-reply@validacontrol.com" },
+        to: recipientEmails.map(e => ({ email: e })),
+        subject: `Relatório de Validades - ${session.loja} - ${session.period.toUpperCase()}`,
+        htmlContent: htmlContent
+      })
+    });
 
-  if (error) {
-    throw error;
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("Brevo API error:", data);
+      throw new Error(data.message || "Erro ao comunicar com o Brevo.");
+    }
+
+    return { success: true, data };
+  } catch (error: any) {
+    console.error("Brevo error:", error);
+    throw new Error(error.message || "Erro ao enviar email via Brevo.");
   }
-
-  return { success: true, data };
 };
