@@ -349,15 +349,14 @@ export default function OperatorForm({ user, session, activeTab = 'task', onFini
                     });
                     
                     if (!response.ok) {
-                      let errorMessage = 'Erro ao enviar email';
+                      const errorText = await response.text();
+                      let errorMessage = `Erro do Servidor (${response.status})`;
+                      
                       try {
-                        const errData = await response.json();
+                        const errData = JSON.parse(errorText);
                         errorMessage = errData.error || errorMessage;
                       } catch (e) {
-                        // Se não for JSON, tenta ler como texto ou usa o status
-                        const textError = await response.text();
-                        console.error('Resposta não-JSON do servidor:', textError);
-                        errorMessage = `Erro do Servidor (${response.status}): O serviço de email não respondeu corretamente.`;
+                        errorMessage = `${errorMessage}: O serviço de email não está disponível ou retornou um erro inesperado.`;
                       }
                       throw new Error(errorMessage);
                     }

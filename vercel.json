@@ -1,8 +1,8 @@
 {
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/server.ts"
+      "source": "/api/send-report",
+      "destination": "/api/send-report.ts"
     },
     {
       "source": "/(.*)",
