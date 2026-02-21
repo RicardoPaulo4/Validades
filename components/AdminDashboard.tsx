@@ -142,7 +142,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
         console.error('Upload failed details:', uploadErr);
         const errorMsg = uploadErr?.message || 'Erro de rede ou CORS';
         
-        if (confirm(`Falha no servidor (${errorMsg}).\n\nIsto acontece geralmente quando o CORS não está configurado no Supabase.\n\nDeseja usar uma imagem padrão para continuar?`)) {
+        if (confirm(`Falha no servidor:\n"${errorMsg}"\n\nDeseja usar uma imagem padrão para continuar?`)) {
           url = `https://images.unsplash.com/photo-1550989460-0adf9ea622e2?q=80&w=200&auto=format&fit=crop`;
         } else {
           setIsSubmitting(false);

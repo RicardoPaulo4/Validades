@@ -206,11 +206,32 @@ export const supabaseService = {
   uploadImage: async (blob: Blob, fileName: string): Promise<string> => {
     try {
       const filePath = `${Date.now()}_${fileName}`;
-      const { data, error } = await supabase.storage.from('produtos_fotos').upload(filePath, blob);
-      if (error) throw error;
-      return supabase.storage.from('produtos_fotos').getPublicUrl(data.path).data.publicUrl;
-    } catch (err) {
-      console.error('Erro no upload da imagem:', err);
+      
+      console.log('Iniciando upload para o bucket: produtos_fotos');
+      
+      const { data, error } = await supabase.storage
+        .from('produtos_fotos')
+        .upload(filePath, blob, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) {
+        console.error('Erro detalhado do Supabase:', error);
+        throw error;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('produtos_fotos')
+        .getPublicUrl(data.path);
+
+      return publicUrl;
+    } catch (err: any) {
+      console.error('Erro completo na função uploadImage:', err);
+      // Se for erro de rede (fetch), dar uma dica sobre o CORS
+      if (err.message === 'Failed to fetch') {
+        throw new Error('Erro de Rede (CORS). Verifique se o bucket "produtos_fotos" é PÚBLICO e se as políticas de INSERT estão ativas no Supabase.');
+      }
       throw err;
     }
   }
