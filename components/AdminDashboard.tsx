@@ -125,9 +125,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       let url = '';
       try {
         url = await supabaseService.uploadImage(blob, `cat_${newTName.replace(/\s+/g, '_')}.jpg`);
-      } catch (uploadErr) {
+      } catch (uploadErr: any) {
         console.error('Upload failed:', uploadErr);
-        if (confirm('Falha ao carregar a imagem para o servidor. Deseja usar uma imagem padrão para continuar?')) {
+        const errorMsg = uploadErr?.message || 'Erro desconhecido';
+        if (confirm(`Falha no servidor (${errorMsg}). Deseja usar uma imagem padrão para continuar?`)) {
           url = `https://images.unsplash.com/photo-1550989460-0adf9ea622e2?q=80&w=200&auto=format&fit=crop`;
         } else {
           setIsSubmitting(false);
