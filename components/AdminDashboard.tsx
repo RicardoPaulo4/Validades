@@ -279,7 +279,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                       <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                             <img src={r.imagem_url} referrerPolicy="no-referrer" className="w-10 h-10 rounded-xl object-cover shadow-sm" />
+                             <img src={r.imagem_url} className="w-10 h-10 rounded-xl object-cover shadow-sm" />
                              <div>
                                <span className="font-bold text-slate-900 text-sm block leading-tight">{r.nome_produto}</span>
                                <div className="flex items-center gap-2 mt-0.5">
@@ -346,7 +346,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                           </button>
                         )}
-                        <img src={t.imagem_url} referrerPolicy="no-referrer" className="w-full aspect-square rounded-[28px] object-cover mb-4 group-hover:scale-105 transition-transform" alt="" />
+                        <img src={t.imagem_url} className="w-full aspect-square rounded-[28px] object-cover mb-4 group-hover:scale-105 transition-transform" alt="" />
                         <h5 className="font-black text-slate-900 text-xs truncate">{t.nome}</h5>
                         <div className="mt-2 flex items-center justify-center gap-2">
                            <span className="text-[9px] font-black bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-lg uppercase">{t.tempo_vida_dias} dias</span>
@@ -425,7 +425,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
             <form onSubmit={handleAddTemplate} className="space-y-6">
               <div className="flex justify-center">
                 <button type="button" onClick={() => fileInputRef.current?.click()} className="w-32 h-32 rounded-[32px] border-4 border-dashed border-slate-200 flex flex-col items-center justify-center hover:border-indigo-500 overflow-hidden shrink-0 transition-all bg-slate-50">
-                  {newTImage ? <img src={newTImage} referrerPolicy="no-referrer" className="w-full h-full object-cover" /> : (
+                  {newTImage ? <img src={newTImage} className="w-full h-full object-cover" /> : (
                     <div className="flex flex-col items-center gap-2">
                       <svg className="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                       <span className="text-[10px] font-black text-slate-300 text-center px-2 uppercase tracking-widest">Foto do Produto</span>
