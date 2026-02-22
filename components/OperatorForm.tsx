@@ -1,4 +1,5 @@
 
+// v1.0.1 - PDF Report Update
 import React, { useState, useEffect, useRef } from 'react';
 import { User, ProductTemplate, SessionData, ValidityRecord, ProductGroup } from '../types.ts';
 import { supabaseService } from '../services/supabaseService.ts';

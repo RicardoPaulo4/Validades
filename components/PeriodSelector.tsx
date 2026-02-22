@@ -9,7 +9,6 @@ interface PeriodSelectorProps {
 
 const PeriodSelector: React.FC<PeriodSelectorProps> = ({ user, onStart }) => {
   const [operatorName, setOperatorName] = useState(user.name);
-  const [reportEmail, setReportEmail] = useState(user.email);
   const [selectedPeriod, setSelectedPeriod] = useState<Period | null>(null);
 
   const periods: { id: Period; label: string; icon: string; time: string; color: string }[] = [
