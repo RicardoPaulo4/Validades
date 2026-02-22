@@ -5,16 +5,25 @@ import { ValidityRecord, ProductTemplate, User, UserRole, Loja } from '../types.
 const rawUrl = import.meta.env.VITE_SUPABASE_URL;
 const rawKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-const supabaseUrl = (rawUrl && rawUrl.trim().startsWith('http')) 
-  ? rawUrl.trim().replace(/\/$/, '') 
-  : 'https://hsbtjuxusrumegelplzb.supabase.co';
+// Fallback values (only used if environment variables are missing or invalid)
+const DEFAULT_URL = 'https://hsbtjuxusrumegelplzb.supabase.co';
+const DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYnRqdXh1c3J1bWVnZWxwbHpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2OTIyOTYsImV4cCI6MjA4NzI2ODI5Nn0.zreatYbro9lFyZKRIfSKQcADgav0Vf85sddOCUCrjbA';
 
-// DEBUG: Log the URL being used (without the key for security)
-console.log('Conectando ao Supabase:', supabaseUrl);
+const isValidUrl = (url?: string) => url && url.trim().startsWith('http') && url.length > 10;
+const isValidKey = (key?: string) => key && key.trim().split('.').length === 3 && key.trim().length > 50;
 
-const supabaseAnonKey = (rawKey && rawKey.trim().length > 20) 
-  ? rawKey.trim() 
-  : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYnRqdXh1c3J1bWVnZWxwbHpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2OTIyOTYsImV4cCI6MjA4NzI2ODI5Nn0.zreatYbro9lFyZKRIfSKQcADgav0Vf85sddOCUCrjbA';
+// Use environment variables ONLY if BOTH are valid. Otherwise, use BOTH defaults.
+// This prevents "signature verification failed" errors caused by mismatched URL/Key pairs.
+const useEnv = isValidUrl(rawUrl) && isValidKey(rawKey);
+
+const supabaseUrl = useEnv ? rawUrl!.trim().replace(/\/$/, '') : DEFAULT_URL;
+const supabaseAnonKey = useEnv ? rawKey!.trim() : DEFAULT_KEY;
+
+console.log('Supabase Connection:', { 
+  url: supabaseUrl, 
+  keyPreview: `${supabaseAnonKey.substring(0, 10)}...${supabaseAnonKey.substring(supabaseAnonKey.length - 10)}`,
+  usingFallback: !useEnv
+});
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
@@ -205,9 +214,16 @@ export const supabaseService = {
 
   uploadImage: async (blob: Blob, fileName: string): Promise<string> => {
     try {
-      const filePath = `${Date.now()}_${fileName}`;
+      // Sanitize filename: remove non-alphanumeric characters (except dots, underscores, hyphens)
+      // This fixes "Invalid key" errors caused by characters like 'ã', 'ç', etc.
+      const sanitizedName = fileName
+        .normalize('NFD') // Decompose combined characters (like ã -> a + ~)
+        .replace(/[\u0300-\u036f]/g, '') // Remove the accents
+        .replace(/[^a-zA-Z0-9._-]/g, '_'); // Replace everything else with underscore
       
-      console.log('Iniciando upload para o bucket: produtos_fotos');
+      const filePath = `${Date.now()}_${sanitizedName}`;
+      
+      console.log('Iniciando upload para o bucket: produtos_fotos, caminho:', filePath);
       
       const { data, error } = await supabase.storage
         .from('produtos_fotos')

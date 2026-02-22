@@ -1,12 +1,5 @@
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
-
-// Extend jsPDF with autotable types
-declare module 'jspdf' {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-  }
-}
+import autoTable from 'jspdf-autotable';
 
 export const generatePDFReport = (session: any, records: any) => {
   const doc = new jsPDF();
@@ -52,7 +45,7 @@ export const generatePDFReport = (session: any, records: any) => {
     r.status === 'expired' ? 'CADUCADO' : r.status === 'expiring_soon' ? 'ATENÇÃO' : 'OK'
   ]);
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: 80,
     head: [['Produto', 'Validade', 'Hora', 'Estado']],
     body: tableData,
