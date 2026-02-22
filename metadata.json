@@ -1,6 +1,6 @@
 {
   "name": "ValidaControl PWA",
-  "description": "Uma aplicação inteligente para controlo de validades de produtos com extração automática de dados via IA.",
+  "description": "Controlo inteligente de validades com relatórios PDF automáticos e extração de dados via IA.",
   "requestFramePermissions": [
     "camera"
   ]
