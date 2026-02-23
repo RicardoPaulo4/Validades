@@ -40,8 +40,8 @@ const ADMIN_EMAIL = 'ricardo.maio.paulo@gmail.com';
 
 // Mock Data para Simulação
 const MOCK_TEMPLATES: ProductTemplate[] = [
-  { id: 't1', nome: 'Pão Big Mac', imagem_url: 'https://images.unsplash.com/photo-1553979459-d2229ba7433b?q=80&w=200&auto=format&fit=crop', tempo_vida_dias: 3, periodos: ['abertura', 'transicao', 'fecho'], grupo: 'Pão' },
-  { id: 't2', nome: 'Carne 10:1', imagem_url: 'https://images.unsplash.com/photo-1586190848861-99aa4a171e90?q=80&w=200&auto=format&fit=crop', tempo_vida_dias: 2, periodos: ['abertura', 'fecho'], grupo: 'Frescos' },
+  { id: 't1', nome: 'Pão Big Mac', imagem_url: 'https://images.unsplash.com/photo-1553979459-d2229ba7433b?q=80&w=200&auto=format&fit=crop', tempo_vida_dias: 3, periodos: ['abertura', 'transicao', 'fecho', 'semanal'], grupo: 'Pão' },
+  { id: 't2', nome: 'Carne 10:1', imagem_url: 'https://images.unsplash.com/photo-1586190848861-99aa4a171e90?q=80&w=200&auto=format&fit=crop', tempo_vida_dias: 2, periodos: ['abertura', 'fecho', 'semanal'], grupo: 'Frescos' },
   { id: 't3', nome: 'Alface Iceberg', imagem_url: 'https://images.unsplash.com/photo-1556801712-76c8220706df?q=80&w=200&auto=format&fit=crop', tempo_vida_dias: 1, periodos: ['abertura', 'transicao', 'fecho'], grupo: 'Frescos' },
   { id: 't4', nome: 'Molho Big Mac', imagem_url: 'https://images.unsplash.com/photo-1470337458703-46ad1756a187?q=80&w=200&auto=format&fit=crop', tempo_vida_dias: 7, periodos: ['transicao'], grupo: 'Molhos' },
   { id: 't5', nome: 'Mistura Sundae', imagem_url: 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?q=80&w=200&auto=format&fit=crop', tempo_vida_dias: 5, periodos: ['abertura', 'fecho'], grupo: 'McCafé' }

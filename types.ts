@@ -1,6 +1,6 @@
 
 export type UserRole = 'admin' | 'operator' | 'gerente';
-export type Period = 'abertura' | 'transicao' | 'fecho';
+export type Period = 'abertura' | 'transicao' | 'fecho' | 'semanal';
 export type ProductGroup = 'Frescos' | 'Pão' | 'Molhos' | 'Coberturas' | 'McCafé' | 'Outros';
 export type Loja = 'Guarda' | 'Covilhã Drive' | 'Serra Shopping' | 'Castelo Branco Drive' | 'Fórum Castelo Branco' | 'Portalegre';
 

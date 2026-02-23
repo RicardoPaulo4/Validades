@@ -131,6 +131,20 @@ export default function OperatorForm({ user, session, activeTab = 'task', onFini
     t.nome.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const [pdfGenerated, setPdfGenerated] = useState(false);
+
+  const getEmailLinks = () => {
+    const subject = encodeURIComponent(`Relatório de Validades - ${session.loja} - ${session.period.toUpperCase()}`);
+    const body = encodeURIComponent(`Olá,\n\nSegue em anexo o relatório de validades referente ao período ${session.period} na loja ${session.loja}.\n\nOperador: ${session.operatorName}\nData: ${new Date().toLocaleDateString('pt-PT')}\n\n(Por favor, anexe o ficheiro PDF descarregado a este email)`);
+    
+    return {
+      gmail: `https://mail.google.com/mail/?view=cm&fs=1&tf=1&to=&su=${subject}&body=${body}`,
+      outlook: `https://outlook.office.com/mail/deeplink/compose?subject=${subject}&body=${body}`
+    };
+  };
+
+  const emailLinks = getEmailLinks();
+
   if (activeTab === 'history') {
     return (
       <div className="max-w-xl mx-auto space-y-6 pb-32 animate-fade-in px-2">
@@ -335,42 +349,82 @@ export default function OperatorForm({ user, session, activeTab = 'task', onFini
             </div>
 
             <div className="pt-4 space-y-4">
-              <button 
-                onClick={async () => {
-                  setIsGeneratingPDF(true);
-                  try {
-                    generatePDFReport(session, sessionRecords);
-                    alert('Relatório PDF gerado com sucesso!');
-                  } catch (err: any) {
-                    console.error('Erro ao gerar PDF:', err);
-                    alert('Erro ao gerar PDF: ' + err.message);
-                  } finally {
-                    setIsGeneratingPDF(false);
-                    setShowReport(false);
-                    onFinishTask();
-                  }
-                }} 
-                disabled={isGeneratingPDF} 
-                className="w-full py-6 bg-indigo-600 text-white rounded-[32px] font-black text-lg shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3"
-              >
-                {isGeneratingPDF ? (
-                  <>
-                    <div className="w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
-                    A GERAR...
-                  </>
-                ) : (
-                  <>
-                    DESCARREGAR PDF
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                  </>
-                )}
-              </button>
-              <button 
-                onClick={() => setShowReport(false)} 
-                className="w-full text-slate-400 font-black text-[11px] uppercase tracking-widest hover:text-slate-900 transition-colors"
-              >
-                Voltar à Edição
-              </button>
+              {!pdfGenerated ? (
+                <button 
+                  onClick={async () => {
+                    setIsGeneratingPDF(true);
+                    try {
+                      generatePDFReport(session, sessionRecords);
+                      setPdfGenerated(true);
+                    } catch (err: any) {
+                      console.error('Erro ao gerar PDF:', err);
+                      alert('Erro ao gerar PDF: ' + err.message);
+                    } finally {
+                      setIsGeneratingPDF(false);
+                    }
+                  }} 
+                  disabled={isGeneratingPDF} 
+                  className="w-full py-6 bg-indigo-600 text-white rounded-[32px] font-black text-lg shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3"
+                >
+                  {isGeneratingPDF ? (
+                    <>
+                      <div className="w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+                      A GERAR...
+                    </>
+                  ) : (
+                    <>
+                      DESCARREGAR PDF
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    </>
+                  )}
+                </button>
+              ) : (
+                <div className="space-y-4 animate-scale-in">
+                  <div className="p-4 bg-emerald-50 rounded-[24px] border border-emerald-100 text-center">
+                    <p className="text-emerald-700 font-black text-[10px] uppercase tracking-widest">PDF Descarregado ✓</p>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <a 
+                      href={emailLinks.gmail} target="_blank" rel="noopener noreferrer"
+                      className="flex flex-col items-center justify-center gap-2 p-4 bg-white border border-slate-200 rounded-[24px] hover:border-red-200 hover:bg-red-50 transition-all group"
+                    >
+                      <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <svg className="w-6 h-6 text-red-600" fill="currentColor" viewBox="0 0 24 24"><path d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L12 9.573l8.073-6.08c1.618-1.214 3.927-.059 3.927 1.964z"/></svg>
+                      </div>
+                      <span className="text-[9px] font-black text-slate-900 uppercase tracking-widest">Gmail</span>
+                    </a>
+                    <a 
+                      href={emailLinks.outlook} target="_blank" rel="noopener noreferrer"
+                      className="flex flex-col items-center justify-center gap-2 p-4 bg-white border border-slate-200 rounded-[24px] hover:border-blue-200 hover:bg-blue-50 transition-all group"
+                    >
+                      <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0L1.6 2.2C.6 2.4 0 3.2 0 4.2v15.6c0 1 .6 1.8 1.6 2l10.4 2.2c.1 0 .2 0 .3 0l10.1-2.2c.9-.2 1.6-1 1.6-2V4.2c0-1-.7-1.8-1.6-2L12.3 0c-.1 0-.2 0-.3 0zm-1 18.5l-4.5-1.5v-10l4.5-1.5v13zm10-1.5l-4.5 1.5v-13l4.5 1.5v10z"/></svg>
+                      </div>
+                      <span className="text-[9px] font-black text-slate-900 uppercase tracking-widest">Outlook</span>
+                    </a>
+                  </div>
+
+                  <button 
+                    onClick={() => {
+                      setShowReport(false);
+                      onFinishTask();
+                    }}
+                    className="w-full py-5 bg-slate-900 text-white rounded-[28px] font-black text-sm shadow-xl active:scale-95 transition-all"
+                  >
+                    Concluir Turno
+                  </button>
+                </div>
+              )}
+              
+              {!pdfGenerated && (
+                <button 
+                  onClick={() => setShowReport(false)} 
+                  className="w-full text-slate-400 font-black text-[11px] uppercase tracking-widest hover:text-slate-900 transition-colors"
+                >
+                  Voltar à Edição
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -14,7 +14,8 @@ const PeriodSelector: React.FC<PeriodSelectorProps> = ({ user, onStart }) => {
   const periods: { id: Period; label: string; icon: string; time: string; color: string }[] = [
     { id: 'abertura', label: 'Abertura', icon: '🌅', time: '07:00 - 12:00', color: 'from-orange-400 to-amber-500' },
     { id: 'transicao', label: 'Transição', icon: '☀️', time: '12:00 - 21:00', color: 'from-indigo-400 to-blue-500' },
-    { id: 'fecho', label: 'Fecho', icon: '🌙', time: '21:00 - 01:00', color: 'from-slate-700 to-slate-900' }
+    { id: 'fecho', label: 'Fecho', icon: '🌙', time: '21:00 - 01:00', color: 'from-slate-700 to-slate-900' },
+    { id: 'semanal', label: 'Semanal', icon: '📅', time: 'Controlo Semanal', color: 'from-emerald-400 to-teal-500' }
   ];
 
   const handleStart = (e: React.FormEvent) => {

@@ -31,7 +31,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const [newTLife, setNewTLife] = useState(3); // Valor padrão inicial
   const [newTImage, setNewTImage] = useState<string | null>(null);
   const [newTImageFile, setNewTImageFile] = useState<File | null>(null);
-  const [newTPeriods, setNewTPeriods] = useState<Period[]>(['abertura', 'transicao', 'fecho']);
+  const [newTPeriods, setNewTPeriods] = useState<Period[]>(['abertura', 'transicao', 'fecho', 'semanal']);
   const [newTGroup, setNewTGroup] = useState<ProductGroup>('Frescos');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -173,7 +173,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
     setNewTLife(3);
     setNewTImage(null);
     setNewTImageFile(null);
-    setNewTPeriods(['abertura', 'transicao', 'fecho']);
+    setNewTPeriods(['abertura', 'transicao', 'fecho', 'semanal']);
     setNewTGroup('Frescos');
   };
 
@@ -458,9 +458,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
 
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Períodos de Verificação</label>
-                  <div className="flex gap-2">
-                    {(['abertura', 'transicao', 'fecho'] as Period[]).map(p => (
-                      <button key={p} type="button" onClick={() => togglePeriod(p)} className={`flex-1 py-3 rounded-xl font-black text-[9px] uppercase transition-all ${newTPeriods.includes(p) ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 text-slate-400'}`}>{p}</button>
+                  <div className="flex flex-wrap gap-2">
+                    {(['abertura', 'transicao', 'fecho', 'semanal'] as Period[]).map(p => (
+                      <button key={p} type="button" onClick={() => togglePeriod(p)} className={`flex-1 min-w-[80px] py-3 rounded-xl font-black text-[9px] uppercase transition-all ${newTPeriods.includes(p) ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 text-slate-400'}`}>{p}</button>
                     ))}
                   </div>
                 </div>
