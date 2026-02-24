@@ -172,6 +172,19 @@ export const supabaseService = {
     }
   },
 
+  updateTemplate: async (id: string, template: Partial<ProductTemplate>): Promise<ProductTemplate> => {
+    try {
+      const { data, error } = await supabase.from('templates').update(template).eq('id', id).select().single();
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      const templates = JSON.parse(localStorage.getItem('vc_templates') || '[]');
+      const updated = templates.map((t: any) => t.id === id ? { ...t, ...template } : t);
+      localStorage.setItem('vc_templates', JSON.stringify(updated));
+      return updated.find((t: any) => t.id === id);
+    }
+  },
+
   // --- Registos ---
   getRecords: async (): Promise<ValidityRecord[]> => {
     try {

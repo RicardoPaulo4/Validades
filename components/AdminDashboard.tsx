@@ -17,6 +17,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const [users, setUsers] = useState<User[]>([]);
   const [view, setView] = useState<'records' | 'catalog' | 'users'>('records');
   const [isAddingTemplate, setIsAddingTemplate] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<ProductTemplate | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
   const isAdmin = user.role === 'admin';
@@ -113,57 +114,84 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
     }
   };
 
-  const handleAddTemplate = async (e: React.FormEvent) => {
+  const handleEditClick = (template: ProductTemplate) => {
+    setEditingTemplate(template);
+    setNewTName(template.nome);
+    setNewTLife(template.tempo_vida_dias);
+    setNewTImage(template.imagem_url);
+    setNewTPeriods(template.periodos);
+    setNewTGroup(template.grupo);
+    setIsAddingTemplate(true);
+  };
+
+  const handleSaveTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) return;
-    if (!newTImageFile || !newTName || newTPeriods.length === 0) {
-      alert('Preencha todos os campos!');
+    if (!newTName || newTPeriods.length === 0) {
+      alert('Preencha o nome e selecione pelo menos um período!');
       return;
     }
+    
+    // Se estiver a criar novo, imagem é obrigatória. Se estiver a editar, pode manter a antiga.
+    if (!editingTemplate && !newTImageFile) {
+      alert('Selecione uma imagem para o novo produto!');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      // Use the file directly instead of fetching from a data URL
-      let blob: Blob = newTImageFile;
+      let url = newTImage || '';
       
-      // Attempt to compress if it's a large image
-      try {
-        if (newTImage) {
-          const compressed = await compressImage(newTImage);
-          blob = base64ToBlob(compressed);
-        }
-      } catch (compressErr) {
-        console.warn('Compression failed, using original file:', compressErr);
-      }
-      
-      let url = '';
-      try {
-        console.log('Attempting upload to Supabase...');
-        url = await supabaseService.uploadImage(blob, `cat_${newTName.replace(/\s+/g, '_')}.jpg`);
-      } catch (uploadErr: any) {
-        console.error('Upload failed details:', uploadErr);
-        const errorMsg = uploadErr?.message || 'Erro de rede ou CORS';
+      if (newTImageFile) {
+        // Use the file directly instead of fetching from a data URL
+        let blob: Blob = newTImageFile;
         
-        if (confirm(`Falha no servidor:\n"${errorMsg}"\n\nDeseja usar uma imagem padrão para continuar?`)) {
-          url = `https://images.unsplash.com/photo-1550989460-0adf9ea622e2?q=80&w=200&auto=format&fit=crop`;
-        } else {
-          setIsSubmitting(false);
-          return;
+        // Attempt to compress if it's a large image
+        try {
+          if (newTImage) {
+            const compressed = await compressImage(newTImage);
+            blob = base64ToBlob(compressed);
+          }
+        } catch (compressErr) {
+          console.warn('Compression failed, using original file:', compressErr);
+        }
+        
+        try {
+          console.log('Attempting upload to Supabase...');
+          url = await supabaseService.uploadImage(blob, `cat_${newTName.replace(/\s+/g, '_')}.jpg`);
+        } catch (uploadErr: any) {
+          console.error('Upload failed details:', uploadErr);
+          const errorMsg = uploadErr?.message || 'Erro de rede ou CORS';
+          
+          if (confirm(`Falha no servidor:\n"${errorMsg}"\n\nDeseja usar uma imagem padrão para continuar?`)) {
+            url = `https://images.unsplash.com/photo-1550989460-0adf9ea622e2?q=80&w=200&auto=format&fit=crop`;
+          } else {
+            setIsSubmitting(false);
+            return;
+          }
         }
       }
       
-      const newT = await supabaseService.addTemplate({
+      const templateData = {
         nome: newTName,
         imagem_url: url,
         tempo_vida_dias: newTLife,
         periodos: newTPeriods,
         grupo: newTGroup
-      });
+      };
+
+      if (editingTemplate) {
+        const updated = await supabaseService.updateTemplate(editingTemplate.id, templateData);
+        setTemplates(prev => prev.map(t => t.id === updated.id ? updated : t));
+      } else {
+        const newT = await supabaseService.addTemplate(templateData);
+        setTemplates([...templates, newT]);
+      }
       
-      setTemplates([...templates, newT]);
       setIsAddingTemplate(false);
       resetForm();
     } catch (err) {
-      alert('Erro ao criar produto.');
+      alert('Erro ao guardar produto.');
     } finally {
       setIsSubmitting(false);
     }
@@ -176,6 +204,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
     setNewTImageFile(null);
     setNewTPeriods(['abertura', 'transicao', 'fecho', 'semanal']);
     setNewTGroup('Frescos');
+    setEditingTemplate(null);
   };
 
   const togglePeriod = (p: Period) => {
@@ -363,13 +392,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                     {groupTemplates.map(t => (
                       <div key={t.id} className="bg-white p-4 rounded-[36px] border border-slate-100 shadow-sm text-center group hover:shadow-md transition-all relative">
                         {isAdmin && (
-                          <button 
-                            onClick={() => handleDeleteTemplate(t.id)}
-                            className="absolute top-2 right-2 p-2 bg-white/80 backdrop-blur-sm text-slate-300 hover:text-red-500 rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-all z-10"
-                            title="Eliminar Produto"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                          </button>
+                          <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all z-10">
+                            <button 
+                              onClick={() => handleEditClick(t)}
+                              className="p-2 bg-white/80 backdrop-blur-sm text-slate-400 hover:text-indigo-600 rounded-full shadow-sm"
+                              title="Editar Produto"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteTemplate(t.id)}
+                              className="p-2 bg-white/80 backdrop-blur-sm text-slate-400 hover:text-red-500 rounded-full shadow-sm"
+                              title="Eliminar Produto"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                          </div>
                         )}
                         <img src={t.imagem_url} className="w-full aspect-square rounded-[28px] object-cover mb-4 group-hover:scale-105 transition-transform" alt="" />
                         <h5 className="font-black text-slate-900 text-xs truncate">{t.nome}</h5>
@@ -437,17 +475,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
         </div>
       )}
 
-      {/* Modal Novo Produto - Somente Admin */}
+      {/* Modal Novo/Editar Produto - Somente Admin */}
       {isAddingTemplate && isAdmin && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-lg rounded-[48px] p-8 space-y-8 animate-scale-in max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center">
-              <h3 className="text-2xl font-black text-slate-900">Novo Produto</h3>
-              <button onClick={() => setIsAddingTemplate(false)} className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
+              <h3 className="text-2xl font-black text-slate-900">{editingTemplate ? 'Editar Produto' : 'Novo Produto'}</h3>
+              <button onClick={() => { setIsAddingTemplate(false); resetForm(); }} className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
-            <form onSubmit={handleAddTemplate} className="space-y-6">
+            <form onSubmit={handleSaveTemplate} className="space-y-6">
               <div className="flex justify-center">
                 <button type="button" onClick={() => fileInputRef.current?.click()} className="w-32 h-32 rounded-[32px] border-4 border-dashed border-slate-200 flex flex-col items-center justify-center hover:border-indigo-500 overflow-hidden shrink-0 transition-all bg-slate-50">
                   {newTImage ? <img src={newTImage} className="w-full h-full object-cover" /> : (
@@ -492,7 +530,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
               </div>
 
               <button disabled={isSubmitting} className="w-full py-5 bg-slate-900 text-white rounded-[24px] font-black text-lg shadow-xl active:scale-[0.98] transition-all disabled:opacity-50">
-                {isSubmitting ? 'A criar...' : 'Guardar Produto'}
+                {isSubmitting ? 'A guardar...' : editingTemplate ? 'Atualizar Produto' : 'Guardar Produto'}
               </button>
             </form>
           </div>
