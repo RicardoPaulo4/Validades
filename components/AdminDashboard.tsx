@@ -33,6 +33,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const [newTImageFile, setNewTImageFile] = useState<File | null>(null);
   const [newTPeriods, setNewTPeriods] = useState<Period[]>(['abertura', 'transicao', 'fecho', 'semanal']);
   const [newTGroup, setNewTGroup] = useState<ProductGroup>('Frescos');
+  const [catalogSearchTerm, setCatalogSearchTerm] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -318,14 +319,38 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       {/* Catálogo e Gestão de Utilizadores - Apenas Admin */}
       {isAdmin && view === 'catalog' && (
         <div className="space-y-10">
-          <div className="flex justify-between items-center px-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 px-4">
             <h3 className="text-xl font-black text-slate-900">Gestão de Produtos</h3>
-            <button onClick={() => setIsAddingTemplate(true)} className="px-6 py-3 bg-indigo-600 text-white rounded-full font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-indigo-700 transition-all active:scale-95">Novo Produto</button>
+            <div className="flex w-full sm:w-auto gap-3">
+              <div className="relative flex-1 sm:w-64">
+                <input 
+                  type="text" 
+                  placeholder="Pesquisar no catálogo..."
+                  className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold outline-none focus:border-indigo-500 transition-all"
+                  value={catalogSearchTerm}
+                  onChange={e => setCatalogSearchTerm(e.target.value)}
+                />
+                <svg className="w-4 h-4 absolute left-3 top-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <button onClick={() => setIsAddingTemplate(true)} className="px-6 py-3 bg-indigo-600 text-white rounded-full font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-indigo-700 transition-all active:scale-95 shrink-0">Novo Produto</button>
+            </div>
           </div>
           
           <div className="space-y-12">
-            {PRODUCT_GROUPS.map(group => {
-              const groupTemplates = templates.filter(t => t.grupo === group);
+            {templates.filter(t => t.nome.toLowerCase().includes(catalogSearchTerm.toLowerCase())).length === 0 ? (
+              <div className="py-20 text-center bg-white rounded-[40px] border border-slate-100 mx-4">
+                <div className="bg-slate-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                </div>
+                <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">Nenhum produto encontrado no catálogo</p>
+              </div>
+            ) : PRODUCT_GROUPS.map(group => {
+              const groupTemplates = templates.filter(t => 
+                t.grupo === group && 
+                t.nome.toLowerCase().includes(catalogSearchTerm.toLowerCase())
+              );
               if (groupTemplates.length === 0) return null;
               
               return (
