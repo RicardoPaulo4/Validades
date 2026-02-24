@@ -9,7 +9,7 @@ interface AdminDashboardProps {
   user: User;
 }
 
-const PRODUCT_GROUPS: ProductGroup[] = ['Frescos', 'Pão', 'Molhos', 'Coberturas', 'McCafé', 'Outros'];
+const PRODUCT_GROUPS: ProductGroup[] = ['Frescos', 'Pão', 'Molhos', 'Coberturas', 'McCafé', 'Congelados', 'Outros'];
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const [records, setRecords] = useState<ValidityRecord[]>([]);
