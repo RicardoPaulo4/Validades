@@ -1,7 +1,7 @@
 
 export type UserRole = 'admin' | 'operator' | 'gerente';
 export type Period = 'abertura' | 'transicao' | 'fecho' | 'semanal';
-export type ProductGroup = 'Frescos' | 'Pão' | 'Molhos' | 'Coberturas' | 'McCafé' | 'Congelados' | 'Outros';
+export type ProductGroup = 'Frescos' | 'Pão' | 'Molhos' | 'Coberturas' | 'McCafé' | 'Congelados' | 'Bebidas' | 'Secos' | 'Outros';
 export type Loja = 'Guarda' | 'Covilhã Drive' | 'Serra Shopping' | 'Castelo Branco Drive' | 'Fórum Castelo Branco' | 'Portalegre';
 
 export const LOJAS_DISPONIVEIS: Loja[] = [

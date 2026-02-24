@@ -13,7 +13,7 @@ interface OperatorFormProps {
   onFinishTask: () => void;
 }
 
-const PRODUCT_GROUPS: ProductGroup[] = ['Frescos', 'Pão', 'Molhos', 'Coberturas', 'McCafé', 'Congelados', 'Outros'];
+const PRODUCT_GROUPS: ProductGroup[] = ['Frescos', 'Pão', 'Molhos', 'Coberturas', 'McCafé', 'Congelados', 'Bebidas', 'Secos', 'Outros'];
 
 export default function OperatorForm({ user, session, activeTab = 'task', onFinishTask }: OperatorFormProps) {
   const [templates, setTemplates] = useState<ProductTemplate[]>([]);
