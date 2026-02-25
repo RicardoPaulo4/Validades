@@ -64,7 +64,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             </svg>
           </div>
           <div>
-            <h1 className="text-4xl font-black text-slate-900 tracking-tight leading-none">Valida<span className="text-indigo-600">Control</span></h1>
+            <h1 className="text-4xl font-black text-slate-900 tracking-tight leading-none">Expiro</h1>
             <p className="mt-2 text-slate-400 font-bold uppercase text-[10px] tracking-[0.3em]">Smart Expiry Systems</p>
           </div>
         </div>

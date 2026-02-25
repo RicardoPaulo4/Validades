@@ -1,5 +1,5 @@
 {
-  "name": "ValidaControl PWA",
+  "name": "Expiro",
   "description": "Controlo inteligente de validades com relatórios PDF automáticos e extração de dados via IA.",
   "requestFramePermissions": [
     "camera"

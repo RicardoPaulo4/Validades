@@ -31,7 +31,7 @@ const Layout: React.FC<LayoutProps> = ({
                 </svg>
               </div>
               <div className="flex flex-col">
-                <span className="text-sm font-black text-slate-900 tracking-tight leading-none mb-0.5">Valida<span className="text-indigo-600">Control</span></span>
+                <span className="text-sm font-black text-slate-900 tracking-tight leading-none mb-0.5">Expiro</span>
                 {currentPeriod && <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">{currentPeriod}</span>}
               </div>
             </div>

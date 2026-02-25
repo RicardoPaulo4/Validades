@@ -32,7 +32,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: false
   },
   global: {
-    headers: { 'x-application-name': 'validacontrol-pwa' }
+    headers: { 'x-application-name': 'expiro-pwa' }
   }
 });
 

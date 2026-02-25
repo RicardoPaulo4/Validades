@@ -71,7 +71,7 @@ export const generatePDFReport = (session: any, records: any) => {
     doc.setFontSize(8);
     doc.setTextColor(148, 163, 184);
     doc.text(
-      `Página ${i} de ${pageCount} - Gerado por ValidaControl PWA`,
+      `Página ${i} de ${pageCount} - Gerado por Expiro`,
       pageWidth / 2,
       doc.internal.pageSize.getHeight() - 10,
       { align: 'center' }

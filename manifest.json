@@ -1,7 +1,7 @@
 
 {
-  "name": "ValidaControl",
-  "short_name": "ValidaControl",
+  "name": "Expiro",
+  "short_name": "Expiro",
   "description": "Controlo de validades inteligente para retalho",
   "start_url": "./index.html",
   "display": "standalone",
