@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ValidityRecord, ProductTemplate, User, Period, ProductGroup, Loja, LOJAS_DISPONIVEIS } from '../types.ts';
+import { ValidityRecord, ProductTemplate, User, UserRole, Period, ProductGroup, Loja, LOJAS_DISPONIVEIS } from '../types.ts';
 import { supabaseService } from '../services/supabaseService.ts';
 import { compressImage, base64ToBlob } from '../utils/imageUtils.ts';
 import StatusBadge from './StatusBadge.tsx';
@@ -15,6 +15,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const [records, setRecords] = useState<ValidityRecord[]>([]);
   const [templates, setTemplates] = useState<ProductTemplate[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [userRoles, setUserRoles] = useState<Record<string, UserRole>>({});
   const [view, setView] = useState<'records' | 'catalog' | 'users'>('records');
   const [isAddingTemplate, setIsAddingTemplate] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<ProductTemplate | null>(null);
@@ -78,9 +79,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
 
   const handleApproveUser = async (userId: string) => {
     if (!isAdmin) return;
-    const ok = await supabaseService.updateUserStatus(userId, true);
+    const role = userRoles[userId];
+    const ok = await supabaseService.updateUserStatus(userId, true, role);
     if (ok) {
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, approved: true } : u));
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, approved: true, role: role || u.role } : u));
     }
   };
 
@@ -449,12 +451,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                 </div>
                 <div className="flex items-center gap-3">
                   {!u.approved ? (
-                    <button 
-                      onClick={() => handleApproveUser(u.id)}
-                      className="px-6 py-3 bg-emerald-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all shadow-md shadow-emerald-100"
-                    >
-                      Aprovar
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <select 
+                        className="p-3 bg-slate-50 border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest outline-none focus:border-indigo-500"
+                        value={userRoles[u.id] || u.role}
+                        onChange={(e) => setUserRoles(prev => ({ ...prev, [u.id]: e.target.value as UserRole }))}
+                      >
+                        <option value="operator">Operador</option>
+                        <option value="gerente">Gerente</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                      <button 
+                        onClick={() => handleApproveUser(u.id)}
+                        className="px-6 py-3 bg-emerald-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all shadow-md shadow-emerald-100"
+                      >
+                        Aprovar
+                      </button>
+                    </div>
                   ) : (
                     <span className="px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-[9px] font-black uppercase tracking-widest border border-emerald-100">
                       Ativo

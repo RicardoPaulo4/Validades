@@ -108,14 +108,16 @@ export const supabaseService = {
     }
   },
 
-  updateUserStatus: async (userId: string, approved: boolean): Promise<boolean> => {
+  updateUserStatus: async (userId: string, approved: boolean, role?: UserRole): Promise<boolean> => {
     try {
-      const { error } = await supabase.from('utilizadores').update({ approved }).eq('id', userId);
+      const updates: any = { approved };
+      if (role) updates.role = role;
+      const { error } = await supabase.from('utilizadores').update(updates).eq('id', userId);
       if (error) throw error;
       return true;
     } catch (err) {
       const users = JSON.parse(localStorage.getItem('vc_users') || '[]');
-      const updated = users.map((u: User) => u.id === userId ? { ...u, approved } : u);
+      const updated = users.map((u: User) => u.id === userId ? { ...u, approved, role: role || u.role } : u);
       localStorage.setItem('vc_users', JSON.stringify(updated));
       return true;
     }
